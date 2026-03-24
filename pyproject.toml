@@ -4,12 +4,16 @@ build-backend = "maturin"
 
 [project]
 name = "repairjson"
+description = "Rust-backed repair of malformed JSON for LLM-style outputs"
 requires-python = ">=3.8"
+readme = "README.md"
 classifiers = [
     "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+keywords = ["json", "repair", "llm", "rust", "pyo3"]
 dynamic = ["version"]
 [project.optional-dependencies]
 tests = [

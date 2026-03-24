@@ -2,6 +2,8 @@
 name = "repairjson"
 version = "0.1.0"
 edition = "2024"
+description = "Rust-backed repair of malformed JSON for LLM-style outputs"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
