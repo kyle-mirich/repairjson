@@ -55,7 +55,7 @@ print(obj)
 # {'user': 'alice', 'active': True, 'tags': ['x', 'y']}
 ```
 
-## Benchmarks
+## Performance
 
 Current benchmark suite: six synthetic 20 MB malformed-JSON datasets modeled after LLM-style output patterns.
 
@@ -70,25 +70,14 @@ Average across the current suite: about `214.9x`.
 
 The conservative claim is still `100x+`, because real-world speedups depend on payload shape, string density, and how broken the JSON is.
 
+The full benchmark harness and development test setup live on the `dev` branch.
+
 ## Development
 
 Create the local environment and install the package in editable mode:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip maturin pytest json_repair
+.venv/bin/python -m pip install --upgrade pip maturin
 .venv/bin/maturin develop
-```
-
-Run tests:
-
-```bash
-cargo test
-.venv/bin/pytest -q
-```
-
-Run benchmarks:
-
-```bash
-.venv/bin/python benchmark.py --dataset all
 ```
