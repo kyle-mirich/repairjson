@@ -30,7 +30,7 @@ fn loads(py: Python<'_>, input: &str) -> PyResult<Py<PyAny>> {
 }
 
 #[pymodule]
-fn json_repair_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn repairjson(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_repair, m)?)?;
     m.add_function(wrap_pyfunction!(repair_to_string, m)?)?;
     m.add_function(wrap_pyfunction!(repair_json, m)?)?;

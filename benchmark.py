@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Callable
 
 import json_repair
-import json_repair_rs
+import repairjson
 
 RECORD_SEPARATOR = "\x1e\n"
 
@@ -170,7 +170,7 @@ def benchmark_lines(path: Path) -> dict[str, float]:
 
     start = time.perf_counter()
     for line in lines:
-        json_repair_rs.repair(line)
+        repairjson.repair(line)
     rust_seconds = time.perf_counter() - start
 
     return {
@@ -185,7 +185,7 @@ def benchmark_lines(path: Path) -> dict[str, float]:
 def verify_outputs(path: Path) -> None:
     for line in read_records(path)[:100]:
         python_output = json_repair.repair_json(line, skip_json_loads=True)
-        rust_output = json_repair_rs.repair(line)
+        rust_output = repairjson.repair(line)
         if json.loads(python_output) != json.loads(rust_output):
             raise AssertionError(
                 "Rust repair output diverged semantically from python json_repair "
