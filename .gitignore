@@ -1,0 +1,8 @@
+.venv/
+target/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.so
+*.dylib
+*.dSYM/
