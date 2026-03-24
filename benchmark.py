@@ -61,6 +61,46 @@ def chatty_nested_sample(index: int) -> str:
     )
 
 
+def long_text_sample(index: int) -> str:
+    section = index % 5
+    return (
+        "{id: "
+        + str(index)
+        + ", title: 'Report "
+        + str(section)
+        + "', summary: 'Paragraph one with context\\nParagraph two with more context\\n"
+        + "Paragraph three with quoted words and symbols like : and , inside the text', "
+        + "notes: ['alpha line\\nbeta line', 'gamma',], approved: False, owner: 'pending'}"
+    )
+
+
+def array_heavy_sample(index: int) -> str:
+    base = index % 100
+    return (
+        "[{kind: 'event', id: "
+        + str(base)
+        + " status: 'ok', score: 1.25}, "
+        + "{kind: 'event', id: "
+        + str(base + 1)
+        + " status: 'retry', score: 2.5,}, "
+        + "{kind: 'event', id: "
+        + str(base + 2)
+        + " status: 'done', score: 3.75}]"
+    )
+
+
+def truncated_nested_sample(index: int) -> str:
+    turn = index % 8
+    return (
+        "{session: {id: 'sess_"
+        + str(turn)
+        + "', messages: [{role: 'system', content: 'You are helpful'}, "
+        + "{role: 'user', content: 'question "
+        + str(index)
+        + "'}, {role: 'assistant', content: 'partial answer', metadata: {safe: True, retries: 0}}"
+    )
+
+
 PROFILES = {
     "dense_object": DatasetProfile(
         name="dense_object",
@@ -75,6 +115,21 @@ PROFILES = {
     "chatty_nested": DatasetProfile(
         name="chatty_nested",
         sample_factory=chatty_nested_sample,
+        target_megabytes=20,
+    ),
+    "long_text": DatasetProfile(
+        name="long_text",
+        sample_factory=long_text_sample,
+        target_megabytes=20,
+    ),
+    "array_heavy": DatasetProfile(
+        name="array_heavy",
+        sample_factory=array_heavy_sample,
+        target_megabytes=20,
+    ),
+    "truncated_nested": DatasetProfile(
+        name="truncated_nested",
+        sample_factory=truncated_nested_sample,
         target_megabytes=20,
     ),
 }
