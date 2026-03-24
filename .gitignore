@@ -6,3 +6,6 @@ __pycache__/
 *.so
 *.dylib
 *.dSYM/
+*.stale
+tmp_*.jsonl
+benchmarks/generated/
