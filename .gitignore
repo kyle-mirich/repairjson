@@ -9,3 +9,4 @@ __pycache__/
 *.stale
 tmp_*.jsonl
 benchmarks/generated/
+uv.lock
