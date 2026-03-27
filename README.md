@@ -26,13 +26,20 @@ If `json.loads()` is too strict and Python-side repair is too slow, this is the 
 ## Install
 
 ```bash
-pip install repairjson
+uv add repairjson
+```
+
+For a plain virtual environment:
+
+```bash
+uv venv
+VIRTUAL_ENV=.venv uv pip install --python .venv/bin/python repairjson
 ```
 
 ## Fast Example
 
 ```bash
-python -c "import repairjson; print(repairjson.repair(\"{user: 'alice', active: True, tags: ['x', 'y',],}\"))"
+uv run --with repairjson python -c "import repairjson; print(repairjson.repair(\"{user: 'alice', active: True, tags: ['x', 'y',],}\"))"
 ```
 
 Output:
@@ -77,7 +84,7 @@ The full benchmark harness and development test setup live on the `dev` branch.
 Create the local environment and install the package in editable mode:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip maturin
-.venv/bin/maturin develop
+uv venv
+VIRTUAL_ENV=.venv uv pip install --python .venv/bin/python maturin
+uv run maturin develop
 ```
