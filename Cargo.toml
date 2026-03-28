@@ -1,6 +1,6 @@
 [package]
 name = "repairjson"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Rust-backed repair of malformed JSON for LLM-style outputs"
 readme = "README.md"

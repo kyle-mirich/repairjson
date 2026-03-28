@@ -105,14 +105,3 @@ fn trim_markdown_fences(bytes: &[u8]) -> (usize, usize) {
 
     (start, end)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Lexer;
-
-    #[test]
-    fn trims_markdown_fences() {
-        let mut lexer = Lexer::new("```json\n{\"a\": 1}\n```");
-        assert_eq!(lexer.next(), Some(b'{'));
-    }
-}

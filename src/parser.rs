@@ -375,30 +375,3 @@ fn push_sanitized_number(output: &mut Vec<u8>, token: &[u8]) {
         output.extend_from_slice(b"0");
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::repair;
-
-    #[test]
-    fn repairs_target_cases() {
-        assert_eq!(repair("{'a': 'b'}"), "{\"a\":\"b\"}");
-        assert_eq!(
-            repair("{'a': True, 'b': False, 'c': None}"),
-            "{\"a\":true,\"b\":false,\"c\":null}"
-        );
-        assert_eq!(repair("{a: 1, b: 2}"), "{\"a\":1,\"b\":2}");
-        assert_eq!(repair("{\"a\": 1,}"), "{\"a\":1}");
-        assert_eq!(repair("{\"a\": 1 \"b\": 2}"), "{\"a\":1,\"b\":2}");
-        assert_eq!(repair("{\"a\": [1, 2, 3}"), "{\"a\":[1,2,3]}");
-        assert_eq!(repair("```json\n{\"a\": 1}\n```"), "{\"a\":1}");
-    }
-
-    #[test]
-    fn escapes_literal_newlines_in_strings() {
-        assert_eq!(
-            repair("{\"a\": \"hello\nworld\"}"),
-            "{\"a\":\"hello\\nworld\"}"
-        );
-    }
-}

@@ -62,7 +62,7 @@ print(obj)
 # {'user': 'alice', 'active': True, 'tags': ['x', 'y']}
 ```
 
-## Benchmarks
+## Performance
 
 Current benchmark suite: six synthetic 20 MB malformed-JSON datasets modeled after LLM-style output patterns.
 
@@ -76,6 +76,8 @@ Current benchmark suite: six synthetic 20 MB malformed-JSON datasets modeled aft
 Average across the current suite: about `214.9x`.
 
 The conservative claim is still `100x+`, because real-world speedups depend on payload shape, string density, and how broken the JSON is.
+
+The full benchmark harness and development test setup live on the `dev` branch.
 
 ## Development
 

@@ -15,10 +15,5 @@ classifiers = [
 ]
 keywords = ["json", "repair", "llm", "rust", "pyo3"]
 dynamic = ["version"]
-[project.optional-dependencies]
-tests = [
-    "pytest",
-    "json_repair",
-]
 [tool.maturin]
 python-source = "python"
