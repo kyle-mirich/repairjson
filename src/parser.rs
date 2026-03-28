@@ -46,7 +46,7 @@ impl<'a> Parser<'a> {
             b'{' => self.parse_object(),
             b'[' => self.parse_array(),
             b'"' | b'\'' => self.parse_string(),
-            b'-' | b'0'..=b'9' => self.parse_number_or_word(),
+            b'+' | b'-' | b'.' | b'0'..=b'9' => self.parse_number_or_word(),
             _ if is_identifier_start(byte) => self.parse_identifier_value(),
             _ => {
                 self.lexer.bump();
@@ -332,7 +332,8 @@ fn is_identifier_start(byte: u8) -> bool {
 }
 
 fn is_value_start(byte: u8) -> bool {
-    matches!(byte, b'{' | b'[' | b'"' | b'\'' | b'-' | b'0'..=b'9') || is_identifier_start(byte)
+    matches!(byte, b'{' | b'[' | b'"' | b'\'' | b'+' | b'-' | b'.' | b'0'..=b'9')
+        || is_identifier_start(byte)
 }
 
 fn push_quoted_bytes(output: &mut Vec<u8>, bytes: &[u8]) {
@@ -357,21 +358,71 @@ fn push_sanitized_number(output: &mut Vec<u8>, token: &[u8]) {
         return;
     }
 
-    if token.starts_with(b".") {
-        output.extend_from_slice(b"0");
-    } else if token.starts_with(b"-.") {
+    let mut normalized = token;
+
+    if token.starts_with(b"-.") {
         output.extend_from_slice(b"-0");
-        output.extend_from_slice(&token[1..]);
-        return;
-    } else if token.starts_with(b"+.") {
-        output.extend_from_slice(b"0");
-        output.extend_from_slice(&token[1..]);
-        return;
+        normalized = &token[1..];
+    } else {
+        if token.starts_with(b"+.") {
+            output.extend_from_slice(b"0");
+            normalized = &token[1..];
+        } else {
+            if token.starts_with(b"+") {
+                normalized = &token[1..];
+            }
+
+            if normalized.starts_with(b".") {
+                output.extend_from_slice(b"0");
+            }
+        }
     }
 
-    output.extend_from_slice(token);
+    output.extend_from_slice(normalized);
 
-    if token.ends_with(b".") {
+    if normalized.ends_with(b".") {
         output.extend_from_slice(b"0");
+    } else if normalized.ends_with(b"e")
+        || normalized.ends_with(b"E")
+        || normalized.ends_with(b"e+")
+        || normalized.ends_with(b"e-")
+        || normalized.ends_with(b"E+")
+        || normalized.ends_with(b"E-")
+    {
+        output.extend_from_slice(b"0");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::repair;
+
+    #[test]
+    fn repairs_target_cases() {
+        assert_eq!(repair("{'a': 'b'}"), "{\"a\":\"b\"}");
+        assert_eq!(
+            repair("{'a': True, 'b': False, 'c': None}"),
+            "{\"a\":true,\"b\":false,\"c\":null}"
+        );
+        assert_eq!(repair("{a: 1, b: 2}"), "{\"a\":1,\"b\":2}");
+        assert_eq!(repair("{\"a\": 1,}"), "{\"a\":1}");
+        assert_eq!(repair("{\"a\": 1 \"b\": 2}"), "{\"a\":1,\"b\":2}");
+        assert_eq!(repair("{\"a\": [1, 2, 3}"), "{\"a\":[1,2,3]}");
+        assert_eq!(repair("```json\n{\"a\": 1}\n```"), "{\"a\":1}");
+    }
+
+    #[test]
+    fn repairs_nested_values_without_commas() {
+        assert_eq!(repair("[1{a:2}]"), "[1,{\"a\":2}]");
+        assert_eq!(repair("{a:1{b:2}}"), "{\"a\":1,\"b\":2}");
+    }
+
+    #[test]
+    fn repairs_malformed_number_prefixes_and_exponents() {
+        assert_eq!(repair("{'a': .5}"), "{\"a\":0.5}");
+        assert_eq!(repair("{'a': +.5}"), "{\"a\":0.5}");
+        assert_eq!(repair("{'a': +5}"), "{\"a\":5}");
+        assert_eq!(repair("{'a': 1e}"), "{\"a\":1e0}");
+        assert_eq!(repair("{'a': 1e+}"), "{\"a\":1e+0}");
     }
 }
