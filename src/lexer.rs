@@ -65,7 +65,9 @@ impl<'a> Lexer<'a> {
     pub fn read_bare_token(&mut self) -> &'a [u8] {
         let start = self.pos;
         while let Some(byte) = self.peek() {
-            if byte.is_ascii_whitespace() || matches!(byte, b',' | b']' | b'}' | b':') {
+            if byte.is_ascii_whitespace()
+                || matches!(byte, b',' | b'[' | b']' | b'{' | b'}' | b':')
+            {
                 break;
             }
             self.pos += 1;
