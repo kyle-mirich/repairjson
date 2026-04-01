@@ -1,0 +1,12 @@
+.venv/
+target/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.so
+*.dylib
+*.dSYM/
+*.stale
+tmp_*.jsonl
+benchmarks/generated/
+uv.lock
