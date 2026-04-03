@@ -7,13 +7,24 @@ name = "repairjson"
 description = "Rust-backed repair of malformed JSON for LLM-style outputs"
 requires-python = ">=3.8"
 readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Kyle Mirich" }]
 classifiers = [
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 keywords = ["json", "repair", "llm", "rust", "pyo3"]
 dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/kyle-mirich/repairjson"
+Repository = "https://github.com/kyle-mirich/repairjson"
+Documentation = "https://github.com/kyle-mirich/repairjson#readme"
+Issues = "https://github.com/kyle-mirich/repairjson/issues"
+
 [tool.maturin]
 python-source = "python"

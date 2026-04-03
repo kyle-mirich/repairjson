@@ -28,6 +28,8 @@ impl<'a> Parser<'a> {
     }
 
     fn repair(mut self) -> String {
+        self.lexer.prefer_structural_value_start();
+
         if !self.parse_value() {
             self.output.extend_from_slice(b"null");
         }
@@ -332,8 +334,10 @@ fn is_identifier_start(byte: u8) -> bool {
 }
 
 fn is_value_start(byte: u8) -> bool {
-    matches!(byte, b'{' | b'[' | b'"' | b'\'' | b'+' | b'-' | b'.' | b'0'..=b'9')
-        || is_identifier_start(byte)
+    matches!(
+        byte,
+        b'{' | b'[' | b'"' | b'\'' | b'+' | b'-' | b'.' | b'0'..=b'9'
+    ) || is_identifier_start(byte)
 }
 
 fn push_quoted_bytes(output: &mut Vec<u8>, bytes: &[u8]) {
@@ -424,5 +428,15 @@ mod tests {
         assert_eq!(repair("{'a': +5}"), "{\"a\":5}");
         assert_eq!(repair("{'a': 1e}"), "{\"a\":1e0}");
         assert_eq!(repair("{'a': 1e+}"), "{\"a\":1e+0}");
+    }
+
+    #[test]
+    fn prefers_structural_json_after_chatty_preamble() {
+        assert_eq!(repair("result = {a:1}"), "{\"a\":1}");
+        assert_eq!(
+            repair("Here is the JSON:\n```json\n{a:1}\n```"),
+            "{\"a\":1}"
+        );
+        assert_eq!(repair("Items follow: [1,2,3]"), "[1,2,3]");
     }
 }
