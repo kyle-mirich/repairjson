@@ -52,3 +52,12 @@ def test_loads_returns_python_objects():
         "a": True,
         "b": [1, 2, 3],
     }
+
+
+def test_prefers_structural_json_after_chatty_preamble():
+    assert repairjson.repair("result = {a:1}") == '{"a":1}'
+    assert (
+        repairjson.repair("Here is the JSON:\n```json\n{a:1}\n```")
+        == '{"a":1}'
+    )
+    assert repairjson.repair("Items follow: [1,2,3]") == "[1,2,3]"

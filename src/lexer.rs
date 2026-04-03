@@ -41,6 +41,27 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    pub fn prefer_structural_value_start(&mut self) {
+        self.skip_whitespace();
+
+        let Some(byte) = self.peek() else {
+            return;
+        };
+
+        if !byte.is_ascii_alphabetic() && !matches!(byte, b'_' | b'$') {
+            return;
+        }
+
+        let mut cursor = self.pos;
+        while cursor < self.end {
+            if matches!(self.bytes[cursor], b'{' | b'[' | b'"' | b'\'') {
+                self.pos = cursor;
+                return;
+            }
+            cursor += 1;
+        }
+    }
+
     pub fn consume_if(&mut self, expected: u8) -> bool {
         if self.peek() == Some(expected) {
             self.pos += 1;
@@ -65,8 +86,7 @@ impl<'a> Lexer<'a> {
     pub fn read_bare_token(&mut self) -> &'a [u8] {
         let start = self.pos;
         while let Some(byte) = self.peek() {
-            if byte.is_ascii_whitespace()
-                || matches!(byte, b',' | b'[' | b']' | b'{' | b'}' | b':')
+            if byte.is_ascii_whitespace() || matches!(byte, b',' | b'[' | b']' | b'{' | b'}' | b':')
             {
                 break;
             }

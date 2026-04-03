@@ -22,6 +22,7 @@ If `json.loads()` is too strict and Python-side repair is too slow, this is the 
 - repair of missing commas and trailing commas
 - auto-closing of truncated objects and arrays
 - stripping of leading and trailing Markdown code fences
+- skipping chatty preambles to recover the first JSON object or array payload
 
 ## Install
 
@@ -77,7 +78,7 @@ Average across the current suite: about `214.9x`.
 
 The conservative claim is still `100x+`, because real-world speedups depend on payload shape, string density, and how broken the JSON is.
 
-The full benchmark harness and development test setup live on the `dev` branch.
+The benchmark harness lives in [`benchmark.py`](./benchmark.py).
 
 ## Development
 
@@ -101,3 +102,11 @@ Run benchmarks:
 ```bash
 uv run python benchmark.py --dataset all
 ```
+
+## Contributing
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the development workflow and pull request expectations.
+
+## License
+
+MIT. See [`LICENSE`](./LICENSE).

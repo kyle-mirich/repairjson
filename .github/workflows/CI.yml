@@ -9,7 +9,7 @@ on:
   push:
     branches:
       - main
-      - master
+      - dev
     tags:
       - '*'
   pull_request:
@@ -19,6 +19,26 @@ permissions:
   contents: read
 
 jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v6
+      - name: Install development dependencies
+        run: |
+          uv venv
+          VIRTUAL_ENV=.venv uv pip install --python .venv/bin/python maturin pytest json_repair
+      - name: Build extension for tests
+        run: uv run maturin develop
+      - name: Run Rust tests
+        run: cargo test
+      - name: Run Python tests
+        run: uv run pytest -q
+
   linux:
     runs-on: ${{ matrix.platform.runner }}
     strategy:
@@ -162,7 +182,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
-    needs: [linux, musllinux, windows, macos, sdist]
+    needs: [checks, linux, musllinux, windows, macos, sdist]
     environment: pypi
     permissions:
       # Use to sign the release artifacts

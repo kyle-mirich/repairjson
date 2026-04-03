@@ -1,9 +1,15 @@
 [package]
 name = "repairjson"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Rust-backed repair of malformed JSON for LLM-style outputs"
 readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/kyle-mirich/repairjson"
+repository = "https://github.com/kyle-mirich/repairjson"
+documentation = "https://github.com/kyle-mirich/repairjson#readme"
+keywords = ["json", "repair", "llm", "python"]
+categories = ["parser-implementations", "text-processing"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
