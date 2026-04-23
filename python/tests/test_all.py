@@ -45,6 +45,7 @@ def test_repairs_malformed_number_prefixes_and_exponents():
     assert repairjson.repair("{'a': +5}") == '{"a":5}'
     assert repairjson.repair("{'a': 1e}") == '{"a":1e0}'
     assert repairjson.repair("{'a': 1e+}") == '{"a":1e+0}'
+    assert repairjson.repair("{'a': 1..2}") == '{"a":"1..2"}'
 
 
 def test_loads_returns_python_objects():
@@ -61,3 +62,5 @@ def test_prefers_structural_json_after_chatty_preamble():
         == '{"a":1}'
     )
     assert repairjson.repair("Items follow: [1,2,3]") == "[1,2,3]"
+    assert repairjson.repair("I'm sorry, here is JSON: {a:1}") == '{"a":1}'
+    assert repairjson.repair("Note: 'quoted preamble' {a:1}") == '{"a":1}'
