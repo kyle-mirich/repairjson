@@ -54,7 +54,7 @@ impl<'a> Lexer<'a> {
 
         let mut cursor = self.pos;
         while cursor < self.end {
-            if matches!(self.bytes[cursor], b'{' | b'[' | b'"' | b'\'') {
+            if matches!(self.bytes[cursor], b'{' | b'[') {
                 self.pos = cursor;
                 return;
             }

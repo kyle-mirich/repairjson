@@ -267,11 +267,8 @@ impl<'a> Parser<'a> {
             return false;
         }
 
-        if token
-            .iter()
-            .all(|byte| matches!(byte, b'0'..=b'9' | b'-' | b'+' | b'.' | b'e' | b'E'))
-        {
-            push_sanitized_number(&mut self.output, token);
+        if let Some(number) = sanitize_number(token) {
+            self.output.extend_from_slice(&number);
             return true;
         }
 
@@ -356,45 +353,92 @@ fn push_quoted_bytes(output: &mut Vec<u8>, bytes: &[u8]) {
     output.push(b'"');
 }
 
-fn push_sanitized_number(output: &mut Vec<u8>, token: &[u8]) {
+fn sanitize_number(token: &[u8]) -> Option<Vec<u8>> {
+    if !token
+        .iter()
+        .all(|byte| matches!(byte, b'0'..=b'9' | b'-' | b'+' | b'.' | b'e' | b'E'))
+    {
+        return None;
+    }
+
     if token == b"-" || token == b"+" {
-        output.extend_from_slice(b"0");
-        return;
+        return Some(b"0".to_vec());
     }
 
     let mut normalized = token;
+    let mut prefix = Vec::new();
 
     if token.starts_with(b"-.") {
-        output.extend_from_slice(b"-0");
+        prefix.extend_from_slice(b"-0");
+        normalized = &token[1..];
+    } else if token.starts_with(b"+.") {
+        prefix.push(b'0');
         normalized = &token[1..];
     } else {
-        if token.starts_with(b"+.") {
-            output.extend_from_slice(b"0");
+        if token.starts_with(b"+") {
             normalized = &token[1..];
-        } else {
-            if token.starts_with(b"+") {
-                normalized = &token[1..];
-            }
+        }
 
-            if normalized.starts_with(b".") {
-                output.extend_from_slice(b"0");
-            }
+        if normalized.starts_with(b".") {
+            prefix.push(b'0');
         }
     }
 
+    let exponent_index = normalized.iter().position(|byte| matches!(byte, b'e' | b'E'));
+    if let Some(index) = exponent_index {
+        if normalized[index + 1..]
+            .iter()
+            .any(|byte| matches!(byte, b'e' | b'E'))
+        {
+            return None;
+        }
+    }
+
+    let (mantissa, exponent) = match exponent_index {
+        Some(index) => (&normalized[..index], Some(&normalized[index + 1..])),
+        None => (normalized, None),
+    };
+
+    if mantissa.iter().filter(|&&byte| byte == b'.').count() > 1 {
+        return None;
+    }
+
+    if !mantissa.iter().all(|byte| matches!(byte, b'0'..=b'9' | b'.')) || mantissa.is_empty() {
+        return None;
+    }
+
+    if let Some(exponent) = exponent {
+        let digits = if let Some(first) = exponent.first() {
+            if matches!(first, b'+' | b'-') {
+                &exponent[1..]
+            } else {
+                exponent
+            }
+        } else {
+            exponent
+        };
+
+        if !digits.iter().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+    }
+
+    let mut output = prefix;
     output.extend_from_slice(normalized);
 
-    if normalized.ends_with(b".") {
-        output.extend_from_slice(b"0");
-    } else if normalized.ends_with(b"e")
-        || normalized.ends_with(b"E")
-        || normalized.ends_with(b"e+")
-        || normalized.ends_with(b"e-")
-        || normalized.ends_with(b"E+")
-        || normalized.ends_with(b"E-")
-    {
-        output.extend_from_slice(b"0");
+    if mantissa.ends_with(b".") {
+        output.push(b'0');
     }
+
+    if matches!(
+        normalized.last(),
+        Some(b'e' | b'E') | Some(b'+') | Some(b'-')
+    ) && exponent.is_some()
+    {
+        output.push(b'0');
+    }
+
+    Some(output)
 }
 
 #[cfg(test)]
@@ -428,6 +472,7 @@ mod tests {
         assert_eq!(repair("{'a': +5}"), "{\"a\":5}");
         assert_eq!(repair("{'a': 1e}"), "{\"a\":1e0}");
         assert_eq!(repair("{'a': 1e+}"), "{\"a\":1e+0}");
+        assert_eq!(repair("{'a': 1..2}"), "{\"a\":\"1..2\"}");
     }
 
     #[test]
@@ -438,5 +483,10 @@ mod tests {
             "{\"a\":1}"
         );
         assert_eq!(repair("Items follow: [1,2,3]"), "[1,2,3]");
+        assert_eq!(repair("I'm sorry, here is JSON: {a:1}"), "{\"a\":1}");
+        assert_eq!(
+            repair("Note: 'quoted preamble' {a:1}"),
+            "{\"a\":1}"
+        );
     }
 }
