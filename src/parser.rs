@@ -110,10 +110,8 @@ impl<'a> Parser<'a> {
             entry_count += 1;
 
             self.lexer.skip_whitespace();
-            if self.lexer.consume_if(b',') {
-                if self.lexer.peek_non_whitespace() == Some(b'}') {
-                    continue;
-                }
+            if self.lexer.consume_if(b',') && self.lexer.peek_non_whitespace() == Some(b'}') {
+                continue;
             }
         }
 
@@ -160,10 +158,8 @@ impl<'a> Parser<'a> {
             item_count += 1;
 
             self.lexer.skip_whitespace();
-            if self.lexer.consume_if(b',') {
-                if self.lexer.peek_non_whitespace() == Some(b']') {
-                    continue;
-                }
+            if self.lexer.consume_if(b',') && self.lexer.peek_non_whitespace() == Some(b']') {
+                continue;
             }
         }
 
@@ -239,12 +235,12 @@ impl<'a> Parser<'a> {
             b'u' => {
                 self.output.extend_from_slice(br#"\u"#);
                 for _ in 0..4 {
-                    if let Some(hex) = self.lexer.peek() {
-                        if hex.is_ascii_hexdigit() {
-                            self.output.push(hex);
-                            self.lexer.bump();
-                            continue;
-                        }
+                    if let Some(hex) = self.lexer.peek()
+                        && hex.is_ascii_hexdigit()
+                    {
+                        self.output.push(hex);
+                        self.lexer.bump();
+                        continue;
                     }
                     self.output.extend_from_slice(b"0");
                 }
@@ -368,30 +364,22 @@ fn sanitize_number(token: &[u8]) -> Option<Vec<u8>> {
     let mut normalized = token;
     let mut prefix = Vec::new();
 
-    if token.starts_with(b"-.") {
-        prefix.extend_from_slice(b"-0");
+    if token.starts_with(b"-") {
+        prefix.push(b'-');
         normalized = &token[1..];
-    } else if token.starts_with(b"+.") {
-        prefix.push(b'0');
+    } else if token.starts_with(b"+") {
         normalized = &token[1..];
-    } else {
-        if token.starts_with(b"+") {
-            normalized = &token[1..];
-        }
-
-        if normalized.starts_with(b".") {
-            prefix.push(b'0');
-        }
     }
 
-    let exponent_index = normalized.iter().position(|byte| matches!(byte, b'e' | b'E'));
-    if let Some(index) = exponent_index {
-        if normalized[index + 1..]
+    let exponent_index = normalized
+        .iter()
+        .position(|byte| matches!(byte, b'e' | b'E'));
+    if let Some(index) = exponent_index
+        && normalized[index + 1..]
             .iter()
             .any(|byte| matches!(byte, b'e' | b'E'))
-        {
-            return None;
-        }
+    {
+        return None;
     }
 
     let (mantissa, exponent) = match exponent_index {
@@ -403,7 +391,11 @@ fn sanitize_number(token: &[u8]) -> Option<Vec<u8>> {
         return None;
     }
 
-    if !mantissa.iter().all(|byte| matches!(byte, b'0'..=b'9' | b'.')) || mantissa.is_empty() {
+    if !mantissa
+        .iter()
+        .all(|byte| matches!(byte, b'0'..=b'9' | b'.'))
+        || mantissa.is_empty()
+    {
         return None;
     }
 
@@ -424,7 +416,11 @@ fn sanitize_number(token: &[u8]) -> Option<Vec<u8>> {
     }
 
     let mut output = prefix;
-    output.extend_from_slice(normalized);
+    output.extend_from_slice(&normalize_mantissa(mantissa));
+    if let Some(exponent) = exponent {
+        output.push(b'e');
+        output.extend_from_slice(exponent);
+    }
 
     if mantissa.ends_with(b".") {
         output.push(b'0');
@@ -439,6 +435,31 @@ fn sanitize_number(token: &[u8]) -> Option<Vec<u8>> {
     }
 
     Some(output)
+}
+
+fn normalize_mantissa(mantissa: &[u8]) -> Vec<u8> {
+    let dot_index = mantissa.iter().position(|&byte| byte == b'.');
+    let integer = dot_index.map_or(mantissa, |index| &mantissa[..index]);
+    let fraction = dot_index.map(|index| &mantissa[index + 1..]);
+
+    let mut first_non_zero = 0;
+    while first_non_zero < integer.len() && integer[first_non_zero] == b'0' {
+        first_non_zero += 1;
+    }
+
+    let mut output = Vec::with_capacity(mantissa.len().max(1));
+    if first_non_zero == integer.len() {
+        output.push(b'0');
+    } else {
+        output.extend_from_slice(&integer[first_non_zero..]);
+    }
+
+    if let Some(fraction) = fraction {
+        output.push(b'.');
+        output.extend_from_slice(fraction);
+    }
+
+    output
 }
 
 #[cfg(test)]
@@ -469,9 +490,15 @@ mod tests {
     fn repairs_malformed_number_prefixes_and_exponents() {
         assert_eq!(repair("{'a': .5}"), "{\"a\":0.5}");
         assert_eq!(repair("{'a': +.5}"), "{\"a\":0.5}");
+        assert_eq!(repair("{'a': -.5}"), "{\"a\":-0.5}");
         assert_eq!(repair("{'a': +5}"), "{\"a\":5}");
+        assert_eq!(repair("{'a': -5}"), "{\"a\":-5}");
+        assert_eq!(repair("{'a': -1.25}"), "{\"a\":-1.25}");
+        assert_eq!(repair("{'a': -1e3}"), "{\"a\":-1e3}");
         assert_eq!(repair("{'a': 1e}"), "{\"a\":1e0}");
         assert_eq!(repair("{'a': 1e+}"), "{\"a\":1e+0}");
+        assert_eq!(repair("{'a': 01}"), "{\"a\":1}");
+        assert_eq!(repair("{'a': 00.5}"), "{\"a\":0.5}");
         assert_eq!(repair("{'a': 1..2}"), "{\"a\":\"1..2\"}");
     }
 
@@ -482,11 +509,12 @@ mod tests {
             repair("Here is the JSON:\n```json\n{a:1}\n```"),
             "{\"a\":1}"
         );
+        assert_eq!(repair("### JSON\n{a:1}"), "{\"a\":1}");
+        assert_eq!(repair("- JSON follows\n{a:1}"), "{\"a\":1}");
+        assert_eq!(repair("1. JSON follows\n[1,2]"), "[1,2]");
         assert_eq!(repair("Items follow: [1,2,3]"), "[1,2,3]");
         assert_eq!(repair("I'm sorry, here is JSON: {a:1}"), "{\"a\":1}");
-        assert_eq!(
-            repair("Note: 'quoted preamble' {a:1}"),
-            "{\"a\":1}"
-        );
+        assert_eq!(repair("Note: 'quoted preamble' {a:1}"), "{\"a\":1}");
+        assert_eq!(repair("Note: '{not the payload}' {a:1}"), "{\"a\":1}");
     }
 }

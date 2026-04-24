@@ -44,17 +44,41 @@ impl<'a> Lexer<'a> {
     pub fn prefer_structural_value_start(&mut self) {
         self.skip_whitespace();
 
-        let Some(byte) = self.peek() else {
-            return;
-        };
-
-        if !byte.is_ascii_alphabetic() && !matches!(byte, b'_' | b'$') {
+        if self.peek().is_none() {
             return;
         }
 
         let mut cursor = self.pos;
+        let mut quote = None;
         while cursor < self.end {
-            if matches!(self.bytes[cursor], b'{' | b'[') {
+            let byte = self.bytes[cursor];
+
+            if let Some(active_quote) = quote {
+                if byte == b'\\' {
+                    cursor = (cursor + 2).min(self.end);
+                    continue;
+                }
+
+                if byte == active_quote {
+                    quote = None;
+                }
+
+                cursor += 1;
+                continue;
+            }
+
+            if matches!(byte, b'"' | b'\'') {
+                if byte == b'\'' && self.is_word_apostrophe(cursor) {
+                    cursor += 1;
+                    continue;
+                }
+
+                quote = Some(byte);
+                cursor += 1;
+                continue;
+            }
+
+            if matches!(byte, b'{' | b'[') {
                 self.pos = cursor;
                 return;
             }
@@ -93,6 +117,13 @@ impl<'a> Lexer<'a> {
             self.pos += 1;
         }
         &self.bytes[start..self.pos]
+    }
+
+    fn is_word_apostrophe(&self, cursor: usize) -> bool {
+        cursor > self.pos
+            && cursor + 1 < self.end
+            && self.bytes[cursor - 1].is_ascii_alphanumeric()
+            && self.bytes[cursor + 1].is_ascii_alphanumeric()
     }
 }
 
