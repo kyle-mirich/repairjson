@@ -11,7 +11,7 @@ on:
       - main
       - dev
     tags:
-      - '*'
+      - 'v*'
   pull_request:
   workflow_dispatch:
 
@@ -24,20 +24,22 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - uses: astral-sh/setup-uv@v6
       - name: Install development dependencies
-        run: |
-          uv venv
-          VIRTUAL_ENV=.venv uv pip install --python .venv/bin/python maturin pytest json_repair
-      - name: Build extension for tests
-        run: uv run maturin develop
+        run: uv pip install --system -e ".[dev]"
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Run clippy
+        run: cargo clippy --all-targets -- -D warnings
       - name: Run Rust tests
         run: cargo test
       - name: Run Python tests
-        run: uv run pytest -q
+        run: python -m pytest -q
 
   linux:
     runs-on: ${{ matrix.platform.runner }}

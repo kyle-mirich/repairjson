@@ -26,5 +26,18 @@ Repository = "https://github.com/kyle-mirich/repairjson"
 Documentation = "https://github.com/kyle-mirich/repairjson#readme"
 Issues = "https://github.com/kyle-mirich/repairjson/issues"
 
+[project.optional-dependencies]
+dev = [
+    "maturin>=1.12,<2.0",
+    "pytest>=8",
+    "twine>=6",
+]
+benchmark = [
+    "json-repair>=0.50; python_version >= '3.10'",
+]
+
 [tool.maturin]
 python-source = "python"
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]

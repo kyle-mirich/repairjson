@@ -1,0 +1,28 @@
+name: Bug report
+description: Report incorrect repair output, installation problems, or regressions.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve repairjson. Remove sensitive data from malformed payloads before sharing them.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Include the repairjson, Python, operating system, and architecture versions.
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Minimal input and output
+      description: Include the smallest non-sensitive input that reproduces the problem and the resulting output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true

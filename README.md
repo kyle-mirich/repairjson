@@ -1,112 +1,124 @@
 # repairjson
 
-Blazing-fast JSON repair for messy LLM output.
+[![CI](https://github.com/kyle-mirich/repairjson/actions/workflows/CI.yml/badge.svg)](https://github.com/kyle-mirich/repairjson/actions/workflows/CI.yml)
+[![PyPI](https://img.shields.io/pypi/v/repairjson)](https://pypi.org/project/repairjson/)
+[![Python](https://img.shields.io/pypi/pyversions/repairjson)](https://pypi.org/project/repairjson/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-`repairjson` is a Rust-powered drop-in repair layer for malformed JSON in Python. It is built for the reality of modern LLM pipelines: broken commas, single quotes, unquoted keys, truncated payloads, Markdown fences, and half-finished responses that still need to get through production systems.
+`repairjson` is a Rust-backed Python library that turns common forms of malformed, LLM-style JSON into valid JSON. It is useful at system boundaries where model output is close to JSON but may contain Python literals, missing punctuation, Markdown fences, or a truncated container.
 
-If `json.loads()` is too strict and Python-side repair is too slow, this is the fast path.
+## What it repairs
 
-## Why repairjson
+- Single-quoted strings and unquoted object keys
+- Python literals such as `True`, `False`, and `None`
+- Missing or trailing commas
+- Truncated objects and arrays
+- Common malformed number forms
+- Raw newlines, tabs, and control characters inside strings
+- Leading Markdown fences and conversational preambles before an object or array
 
-- Rust core with a single-pass repair engine
-- designed for malformed LLM-style JSON, not just clean parser input
-- published PyPI wheels
-- benchmarked at roughly `~200x` average speedup versus Python `json_repair` on the current 20 MB malformed corpus suite
+The repair engine is byte-oriented and returns compact JSON. `loads()` performs repair and then delegates deserialization to Python's standard `json` module.
 
-## What It Repairs
-
-- single-pass byte-oriented repair
-- support for single-quoted strings
-- support for Python literals like `True`, `False`, and `None`
-- repair of unquoted object keys
-- repair of missing commas and trailing commas
-- auto-closing of truncated objects and arrays
-- stripping of leading and trailing Markdown code fences
-- skipping chatty preambles to recover the first JSON object or array payload
-
-## Install
+## Installation
 
 ```bash
-uv add repairjson
+python -m pip install repairjson
 ```
 
-For a plain virtual environment:
-
-```bash
-uv venv
-VIRTUAL_ENV=.venv uv pip install --python .venv/bin/python repairjson
-```
-
-## Fast Example
-
-```bash
-uv run --with repairjson python -c "import repairjson; print(repairjson.repair(\"{user: 'alice', active: True, tags: ['x', 'y',],}\"))"
-```
-
-Output:
-
-```json
-{"user":"alice","active":true,"tags":["x","y"]}
-```
-
-## Usage
+## Quick start
 
 ```python
 import repairjson
 
-fixed = repairjson.repair("{user: 'alice', active: True, tags: ['x', 'y',],}")
+source = "{user: 'alice', active: True, tags: ['x', 'y',],}"
+
+fixed = repairjson.repair(source)
 print(fixed)
 # {"user":"alice","active":true,"tags":["x","y"]}
 
-obj = repairjson.loads("{user: 'alice', active: True, tags: ['x', 'y',],}")
-print(obj)
-# {'user': 'alice', 'active': True, 'tags': ['x', 'y']}
+value = repairjson.loads(source)
+print(value["user"])
+# alice
 ```
 
-## Performance
+## API
 
-Current benchmark suite: six synthetic 20 MB malformed-JSON datasets modeled after LLM-style output patterns.
+### `repairjson.repair(input: str) -> str`
 
-- `dense_object`: `206.2x`
-- `fenced_payload`: `202.81x`
-- `chatty_nested`: `242.24x`
-- `long_text`: `198.91x`
-- `array_heavy`: `209.86x`
-- `truncated_nested`: `229.48x`
+Returns a repaired JSON string. For example:
 
-Average across the current suite: about `214.9x`.
+```python
+repairjson.repair("Here is the JSON:\n```json\n{answer: 42}\n```")
+# '{"answer":42}'
+```
 
-The conservative claim is still `100x+`, because real-world speedups depend on payload shape, string density, and how broken the JSON is.
+### `repairjson.loads(input: str) -> object`
 
-The benchmark harness lives in [`benchmark.py`](./benchmark.py).
+Repairs the input and returns the Python value produced by `json.loads()`.
+
+`repair_to_string()` and `repair_json()` remain available as compatibility aliases for `repair()`.
+
+## Limitations and safety
+
+Repair is heuristic and can be lossy. Ambiguous input may have more than one reasonable interpretation; callers should validate the returned value against an expected schema before using it. The library extracts the first object or array found after a conversational preamble and ignores trailing prose after the parsed value.
+
+This package does not perform schema validation, stream parsing, or security policy enforcement. Apply normal input-size and nesting limits when processing untrusted data. If exact preservation is required, reject malformed input instead of repairing it.
+
+The package is currently an alpha release. See [CHANGELOG.md](CHANGELOG.md) for release history.
+
+## Benchmarking
+
+The benchmark harness compares `repairjson` with the Python `json-repair` package across generated malformed-input profiles:
+
+```bash
+uv run --extra benchmark python benchmark.py --dataset all
+```
+
+The benchmark requires Python 3.10 or newer because of its comparison dependency. It checks a sample for semantic equivalence before reporting timings. Results vary with hardware, package versions, and input shape, so the project does not claim a fixed speedup.
 
 ## Development
 
-Create the local environment and install the package in editable mode:
+Prerequisites: Python 3.8 or newer, Rust stable, and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
+git clone https://github.com/kyle-mirich/repairjson.git
+cd repairjson
 uv venv
-VIRTUAL_ENV=.venv uv pip install --python .venv/bin/python maturin pytest json_repair
-uv run maturin develop
+uv pip install -e ".[dev]"
 ```
 
-Run tests:
+Run the same checks used by CI:
 
 ```bash
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 cargo test
-uv run pytest -q
+.venv/bin/python -m pytest -q
 ```
 
-Run benchmarks:
+Build and inspect release artifacts:
 
 ```bash
-uv run python benchmark.py --dataset all
+.venv/bin/maturin build --release --sdist -i .venv/bin/python -o dist
+.venv/bin/twine check dist/*
 ```
+
+## Project structure
+
+- `src/lexer.rs`: byte-level input traversal and fence handling
+- `src/parser.rs`: repair state machine and normalization logic
+- `src/lib.rs`: PyO3 Python API
+- `python/tests/`: end-to-end Python API tests
+- `benchmark.py`: generated-corpus benchmark harness
+- `.github/workflows/CI.yml`: checks, wheels, attestations, and trusted publishing
+- [`docs/flows.md`](docs/flows.md): repair and release flows
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the development workflow and pull request expectations.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and pull request expectations.
+
+Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE).
+MIT. See [LICENSE](LICENSE).

@@ -3,6 +3,10 @@ import json
 import repairjson
 
 
+def test_package_exposes_version():
+    assert repairjson.__version__ == "0.1.3"
+
+
 def test_repair_smoke():
     payload = '{"status": "ok"}'
     assert json.loads(repairjson.repair(payload)) == {"status": "ok"}
@@ -32,6 +36,7 @@ def test_repairs_target_cases():
     assert repairjson.repair('{"a": [1, 2, 3}') == '{"a":[1,2,3]}'
     assert repairjson.repair('```json\n{"a": 1}\n```') == '{"a":1}'
     assert repairjson.repair('{"a": "hello\nworld"}') == '{"a":"hello\\nworld"}'
+    assert repairjson.repair("'tab\\\tvalue'") == '"tab\\tvalue"'
 
 
 def test_repairs_nested_values_without_commas():
@@ -49,6 +54,8 @@ def test_repairs_malformed_number_prefixes_and_exponents():
     assert repairjson.repair("{'a': -1e3}") == '{"a":-1e3}'
     assert repairjson.repair("{'a': 1e}") == '{"a":1e0}'
     assert repairjson.repair("{'a': 1e+}") == '{"a":1e+0}'
+    assert repairjson.repair("{'a': .e}") == '{"a":0.0e0}'
+    assert repairjson.repair("{'a': 1.e2}") == '{"a":1.0e2}'
     assert repairjson.repair("{'a': 01}") == '{"a":1}'
     assert repairjson.repair("{'a': 00.5}") == '{"a":0.5}'
     assert repairjson.repair("{'a': 1..2}") == '{"a":"1..2"}'
@@ -59,6 +66,13 @@ def test_loads_returns_python_objects():
         "a": True,
         "b": [1, 2, 3],
     }
+
+
+def test_valid_json_preserves_values():
+    value = {"unicode": "café 中 🙂", "items": [None, True, 1.25]}
+    source = json.dumps(value, ensure_ascii=False)
+
+    assert json.loads(repairjson.repair(source)) == value
 
 
 def test_prefers_structural_json_after_chatty_preamble():

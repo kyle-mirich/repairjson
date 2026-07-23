@@ -1,12 +1,4 @@
-use smallvec::SmallVec;
-
 use crate::lexer::Lexer;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Context {
-    Object,
-    Array,
-}
 
 pub fn repair(input: &str) -> String {
     Parser::new(input).repair()
@@ -15,7 +7,6 @@ pub fn repair(input: &str) -> String {
 struct Parser<'a> {
     lexer: Lexer<'a>,
     output: Vec<u8>,
-    stack: SmallVec<[Context; 8]>,
 }
 
 impl<'a> Parser<'a> {
@@ -23,7 +14,6 @@ impl<'a> Parser<'a> {
         Self {
             lexer: Lexer::new(input),
             output: Vec::with_capacity(input.len().saturating_add(16)),
-            stack: SmallVec::new(),
         }
     }
 
@@ -59,7 +49,6 @@ impl<'a> Parser<'a> {
 
     fn parse_object(&mut self) -> bool {
         self.lexer.consume_if(b'{');
-        self.stack.push(Context::Object);
         self.output.push(b'{');
 
         let mut entry_count = 0;
@@ -116,13 +105,11 @@ impl<'a> Parser<'a> {
         }
 
         self.output.push(b'}');
-        self.stack.pop();
         true
     }
 
     fn parse_array(&mut self) -> bool {
         self.lexer.consume_if(b'[');
-        self.stack.push(Context::Array);
         self.output.push(b'[');
 
         let mut item_count = 0;
@@ -164,7 +151,6 @@ impl<'a> Parser<'a> {
         }
 
         self.output.push(b']');
-        self.stack.pop();
         true
     }
 
@@ -253,6 +239,8 @@ impl<'a> Parser<'a> {
                 }
                 self.output.extend_from_slice(br#"\n"#);
             }
+            b'\t' => self.output.extend_from_slice(br#"\t"#),
+            0x00..=0x08 | 0x0B | 0x0C | 0x0E..=0x1F => {}
             _ => self.output.push(next),
         }
     }
@@ -417,13 +405,13 @@ fn sanitize_number(token: &[u8]) -> Option<Vec<u8>> {
 
     let mut output = prefix;
     output.extend_from_slice(&normalize_mantissa(mantissa));
+    if mantissa.ends_with(b".") {
+        output.push(b'0');
+    }
+
     if let Some(exponent) = exponent {
         output.push(b'e');
         output.extend_from_slice(exponent);
-    }
-
-    if mantissa.ends_with(b".") {
-        output.push(b'0');
     }
 
     if matches!(
@@ -478,6 +466,7 @@ mod tests {
         assert_eq!(repair("{\"a\": 1 \"b\": 2}"), "{\"a\":1,\"b\":2}");
         assert_eq!(repair("{\"a\": [1, 2, 3}"), "{\"a\":[1,2,3]}");
         assert_eq!(repair("```json\n{\"a\": 1}\n```"), "{\"a\":1}");
+        assert_eq!(repair("'tab\\\tvalue'"), "\"tab\\tvalue\"");
     }
 
     #[test]
@@ -497,6 +486,8 @@ mod tests {
         assert_eq!(repair("{'a': -1e3}"), "{\"a\":-1e3}");
         assert_eq!(repair("{'a': 1e}"), "{\"a\":1e0}");
         assert_eq!(repair("{'a': 1e+}"), "{\"a\":1e+0}");
+        assert_eq!(repair("{'a': .e}"), "{\"a\":0.0e0}");
+        assert_eq!(repair("{'a': 1.e2}"), "{\"a\":1.0e2}");
         assert_eq!(repair("{'a': 01}"), "{\"a\":1}");
         assert_eq!(repair("{'a': 00.5}"), "{\"a\":0.5}");
         assert_eq!(repair("{'a': 1..2}"), "{\"a\":\"1..2\"}");

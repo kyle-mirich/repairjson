@@ -1,25 +1,49 @@
-# Contributing
+# Contributing to repairjson
+
+Thank you for improving `repairjson`. Small, well-tested changes are easiest to review, especially when parser behavior is involved.
 
 ## Development setup
 
+Install Python 3.8 or newer, Rust stable, and `uv`, then run:
+
 ```bash
+git clone https://github.com/kyle-mirich/repairjson.git
+cd repairjson
 uv venv
-VIRTUAL_ENV=.venv uv pip install --python .venv/bin/python maturin pytest json_repair
-uv run maturin develop
+uv pip install -e ".[dev]"
 ```
+
+No environment variables or external services are required.
 
 ## Verification
 
 Run the full local check before opening a pull request:
 
 ```bash
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 cargo test
-uv run pytest -q
-uv build
+.venv/bin/python -m pytest -q
 ```
+
+Build release artifacts when changing packaging or release configuration:
+
+```bash
+.venv/bin/maturin build --release --sdist -i .venv/bin/python -o dist
+.venv/bin/twine check dist/*
+```
+
+## Parser changes
+
+- Add a minimal regression test for the malformed input.
+- Assert that `repair()` returns valid JSON, not only the expected text shape.
+- Preserve valid JSON values whenever the input is unambiguous.
+- Document intentionally heuristic or lossy behavior.
+- Remove private or sensitive content from real model payloads before adding fixtures.
 
 ## Pull requests
 
-- Keep changes scoped to one problem.
-- Add or update tests for behavioral changes.
-- Update `README.md` when user-facing behavior or commands change.
+- Keep each pull request focused on one problem.
+- Explain the ambiguity and chosen repair behavior when several interpretations are possible.
+- Update the README and changelog for user-visible changes.
+- Do not include generated benchmark corpora, wheels, virtual environments, or credentials.
