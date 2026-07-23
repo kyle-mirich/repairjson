@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Automatic GitHub Release creation with CI-built artifacts for future version tags.
+
 ## [0.1.3] - 2026-07-22
 
 ### Fixed
@@ -29,5 +35,6 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Improved repair behavior for conversational preambles and malformed numbers.
 
+[Unreleased]: https://github.com/kyle-mirich/repairjson/compare/v0.1.3...HEAD
 [0.1.3]: https://github.com/kyle-mirich/repairjson/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/kyle-mirich/repairjson/releases/tag/v0.1.2
