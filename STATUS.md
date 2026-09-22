@@ -1,9 +1,9 @@
 # Status
 
-- Outcome: A dependable, documented Python JSON repair library with published binary wheels.
-- Current goal: Complete the maintainer-authorized review and release pass requested on 2026-09-21.
-- Definition of done: Parser regressions covered, public behavior documented, local and CI checks green, new version published to PyPI and GitHub, and repository pushed.
-- Next physical action: Push the reviewed 0.2.0 changes, wait for all platform checks, then tag and verify PyPI/GitHub publication.
+- Outcome: repairjson 0.2.0 is published on PyPI and GitHub with 15 platform wheels, a source distribution, and provenance attestations.
+- Current goal: Completed the maintainer-authorized review, cleanup, documentation, and release pass requested on 2026-09-21.
+- Definition of done: Achieved. All 23 validation/build jobs and the release job passed; 6 Rust tests and 149 Python tests passed, including a fresh PyPI install. PyPI and GitHub distribution hashes match.
+- Next physical action: None for this release. Release notes: https://github.com/kyle-mirich/repairjson/releases/tag/v0.2.0
 - Why now: The maintainer explicitly resumed this archived project for a quality and release pass.
-- Park if: Publication requires credentials or an account action unavailable to the maintainer's tooling.
+- Park if: No further maintenance is requested; the project remains in its existing archive location.
 - Updated: 2026-09-21
