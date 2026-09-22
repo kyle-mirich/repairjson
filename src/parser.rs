@@ -1,6 +1,23 @@
 use crate::lexer::Lexer;
 
-pub fn repair(input: &str) -> String {
+/// Maximum number of simultaneously open objects and arrays.
+pub const MAX_DEPTH: usize = 128;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DepthLimitExceeded;
+
+impl std::fmt::Display for DepthLimitExceeded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "JSON nesting exceeds the limit of {MAX_DEPTH} containers"
+        )
+    }
+}
+
+impl std::error::Error for DepthLimitExceeded {}
+
+pub fn repair(input: &str) -> Result<String, DepthLimitExceeded> {
     Parser::new(input).repair()
 }
 
@@ -17,157 +34,119 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn repair(mut self) -> String {
+    fn repair(mut self) -> Result<String, DepthLimitExceeded> {
         self.lexer.prefer_structural_value_start();
 
-        if !self.parse_value() {
+        if !self.parse_value(0)? {
             self.output.extend_from_slice(b"null");
         }
 
-        String::from_utf8(self.output).expect("repair output is always utf-8")
+        // Input is UTF-8; only ASCII syntax is removed or inserted. Non-ASCII
+        // bytes are always copied together as part of a token or string.
+        Ok(String::from_utf8(self.output).expect("repair output is always utf-8"))
     }
 
-    fn parse_value(&mut self) -> bool {
+    fn parse_value(&mut self, depth: usize) -> Result<bool, DepthLimitExceeded> {
         self.skip_to_value_start();
 
         let Some(byte) = self.lexer.peek() else {
-            return false;
+            return Ok(false);
         };
 
         match byte {
-            b'{' => self.parse_object(),
-            b'[' => self.parse_array(),
-            b'"' | b'\'' => self.parse_string(),
-            b'+' | b'-' | b'.' | b'0'..=b'9' => self.parse_number_or_word(),
-            _ if is_identifier_start(byte) => self.parse_identifier_value(),
-            _ => {
-                self.lexer.bump();
-                self.parse_value()
+            b'{' | b'[' => {
+                if depth >= MAX_DEPTH {
+                    return Err(DepthLimitExceeded);
+                }
+                if byte == b'{' {
+                    self.parse_object(depth + 1)?;
+                } else {
+                    self.parse_array(depth + 1)?;
+                }
+                Ok(true)
             }
+            b'"' | b'\'' => Ok(self.parse_string()),
+            b'+' | b'-' | b'.' | b'0'..=b'9' => Ok(self.parse_number_or_word()),
+            _ if is_identifier_start(byte) => Ok(self.parse_identifier_value()),
+            // Separators and closing delimiters belong to the caller. In
+            // particular, a missing object value must not eat the next key.
+            _ => Ok(false),
         }
     }
 
-    fn parse_object(&mut self) -> bool {
-        self.lexer.consume_if(b'{');
+    fn parse_object(&mut self, depth: usize) -> Result<(), DepthLimitExceeded> {
+        self.lexer.bump();
         self.output.push(b'{');
-
-        let mut entry_count = 0;
+        let mut has_entries = false;
 
         loop {
             self.lexer.skip_whitespace();
-
-            if self.lexer.consume_if(b'}') {
+            if self.lexer.consume_if(b'}') || self.lexer.is_eof() {
                 break;
             }
-
-            if self.lexer.is_eof() {
+            // Close this object implicitly and let the parent consume ']'.
+            if self.lexer.peek() == Some(b']') {
                 break;
             }
-
-            if self.lexer.consume_if(b',') {
-                continue;
-            }
-
             if !self.can_start_object_key() {
                 self.lexer.bump();
                 continue;
             }
 
-            if entry_count > 0 {
+            if has_entries {
                 self.output.push(b',');
             }
-
-            if !self.parse_key() {
-                self.output.pop();
-                break;
-            }
-
+            self.parse_key();
             self.lexer.skip_whitespace();
-
-            if self.lexer.consume_if(b':') {
-                self.output.push(b':');
-            } else {
-                self.output.extend_from_slice(b":null");
-                entry_count += 1;
-                continue;
-            }
-
-            self.lexer.skip_whitespace();
-            if !self.parse_value() {
+            self.lexer.consume_if(b':');
+            self.output.push(b':');
+            if !self.parse_value(depth)? {
                 self.output.extend_from_slice(b"null");
             }
-            entry_count += 1;
-
-            self.lexer.skip_whitespace();
-            if self.lexer.consume_if(b',') && self.lexer.peek_non_whitespace() == Some(b'}') {
-                continue;
-            }
+            has_entries = true;
         }
 
         self.output.push(b'}');
-        true
+        Ok(())
     }
 
-    fn parse_array(&mut self) -> bool {
-        self.lexer.consume_if(b'[');
+    fn parse_array(&mut self, depth: usize) -> Result<(), DepthLimitExceeded> {
+        self.lexer.bump();
         self.output.push(b'[');
-
-        let mut item_count = 0;
+        let mut has_items = false;
 
         loop {
             self.lexer.skip_whitespace();
-
-            if self.lexer.consume_if(b']') {
+            if self.lexer.consume_if(b']') || self.lexer.is_eof() {
                 break;
             }
-
-            if self.lexer.is_eof() {
+            // A parent's closing brace must not become part of this array.
+            if self.lexer.peek() == Some(b'}') {
                 break;
             }
-
-            if self.lexer.consume_if(b',') {
-                continue;
-            }
-
-            if !self.can_start_value() {
+            if !self.lexer.peek().is_some_and(is_value_start) {
                 self.lexer.bump();
                 continue;
             }
 
-            if item_count > 0 {
+            if has_items {
                 self.output.push(b',');
             }
-
-            if !self.parse_value() {
-                self.output.pop();
-                break;
-            }
-            item_count += 1;
-
-            self.lexer.skip_whitespace();
-            if self.lexer.consume_if(b',') && self.lexer.peek_non_whitespace() == Some(b']') {
-                continue;
-            }
+            self.parse_value(depth)?;
+            has_items = true;
         }
 
         self.output.push(b']');
-        true
+        Ok(())
     }
 
-    fn parse_key(&mut self) -> bool {
-        self.lexer.skip_whitespace();
-
-        match self.lexer.peek() {
-            Some(b'"' | b'\'') => self.parse_string(),
-            Some(byte) if is_identifier_start(byte) || byte.is_ascii_digit() || byte == b'-' => {
-                let token = self.lexer.read_bare_token();
-                if token.is_empty() {
-                    return false;
-                }
-                push_quoted_bytes(&mut self.output, token);
-                true
-            }
-            _ => false,
+    // Called only after can_start_object_key has recognized a nonempty key.
+    fn parse_key(&mut self) {
+        if matches!(self.lexer.peek(), Some(b'"' | b'\'')) {
+            self.parse_string();
+        } else {
+            let token = self.lexer.read_bare_token();
+            push_quoted_bytes(&mut self.output, token);
         }
     }
 
@@ -184,19 +163,10 @@ impl<'a> Parser<'a> {
                 return true;
             }
 
-            match byte {
-                b'\\' => self.push_escaped_char(quote),
-                b'"' => self.output.extend_from_slice(br#"\""#),
-                b'\n' => self.output.extend_from_slice(br#"\n"#),
-                b'\r' => {
-                    if self.lexer.peek() == Some(b'\n') {
-                        self.lexer.bump();
-                    }
-                    self.output.extend_from_slice(br#"\n"#);
-                }
-                b'\t' => self.output.extend_from_slice(br#"\t"#),
-                0x00..=0x08 | 0x0B | 0x0C | 0x0E..=0x1F => {}
-                _ => self.output.push(byte),
+            if byte == b'\\' {
+                self.push_escaped_char();
+            } else {
+                push_string_byte(&mut self.output, byte);
             }
         }
 
@@ -204,7 +174,7 @@ impl<'a> Parser<'a> {
         true
     }
 
-    fn push_escaped_char(&mut self, quote: u8) {
+    fn push_escaped_char(&mut self) {
         let Some(next) = self.lexer.next() else {
             self.output.extend_from_slice(br#"\\"#);
             return;
@@ -231,17 +201,8 @@ impl<'a> Parser<'a> {
                     self.output.extend_from_slice(b"0");
                 }
             }
-            b'\'' if quote == b'\'' => self.output.push(b'\''),
-            b'\n' => self.output.extend_from_slice(br#"\n"#),
-            b'\r' => {
-                if self.lexer.peek() == Some(b'\n') {
-                    self.lexer.bump();
-                }
-                self.output.extend_from_slice(br#"\n"#);
-            }
-            b'\t' => self.output.extend_from_slice(br#"\t"#),
-            0x00..=0x08 | 0x0B | 0x0C | 0x0E..=0x1F => {}
-            _ => self.output.push(next),
+            // Unknown escapes lose the backslash but preserve the character.
+            _ => push_string_byte(&mut self.output, next),
         }
     }
 
@@ -251,8 +212,7 @@ impl<'a> Parser<'a> {
             return false;
         }
 
-        if let Some(number) = sanitize_number(token) {
-            self.output.extend_from_slice(&number);
+        if push_number(&mut self.output, token) {
             return true;
         }
 
@@ -278,40 +238,26 @@ impl<'a> Parser<'a> {
 
     fn skip_to_value_start(&mut self) {
         self.lexer.skip_whitespace();
-
         while let Some(byte) = self.lexer.peek() {
-            if is_value_start(byte) {
+            if is_value_start(byte) || matches!(byte, b',' | b']' | b'}') {
                 break;
             }
-
-            if matches!(byte, b',' | b':' | b';') {
-                self.lexer.bump();
-                self.lexer.skip_whitespace();
-                continue;
-            }
-
             self.lexer.bump();
             self.lexer.skip_whitespace();
         }
     }
 
-    fn can_start_object_key(&mut self) -> bool {
-        self.lexer.skip_whitespace();
+    fn can_start_object_key(&self) -> bool {
         match self.lexer.peek() {
-            Some(b'"' | b'\'') | Some(b'-' | b'0'..=b'9') => true,
+            Some(b'"' | b'\'' | b'-' | b'0'..=b'9') => true,
             Some(byte) => is_identifier_start(byte),
             None => false,
         }
     }
-
-    fn can_start_value(&mut self) -> bool {
-        self.lexer.skip_whitespace();
-        self.lexer.peek().is_some_and(is_value_start)
-    }
 }
 
 fn is_identifier_start(byte: u8) -> bool {
-    byte.is_ascii_alphabetic() || matches!(byte, b'_' | b'$')
+    byte.is_ascii_alphabetic() || byte >= 0x80 || matches!(byte, b'_' | b'$')
 }
 
 fn is_value_start(byte: u8) -> bool {
@@ -321,138 +267,117 @@ fn is_value_start(byte: u8) -> bool {
     ) || is_identifier_start(byte)
 }
 
+// The same escaping rules apply to quoted input and repaired bare tokens.
+fn push_string_byte(output: &mut Vec<u8>, byte: u8) {
+    match byte {
+        b'"' => output.extend_from_slice(br#"\""#),
+        b'\\' => output.extend_from_slice(br#"\\"#),
+        b'\n' => output.extend_from_slice(br#"\n"#),
+        b'\r' => output.extend_from_slice(br#"\r"#),
+        b'\t' => output.extend_from_slice(br#"\t"#),
+        0x00..=0x1f => {
+            const HEX: &[u8; 16] = b"0123456789abcdef";
+            output.extend_from_slice(br#"\u00"#);
+            output.push(HEX[(byte >> 4) as usize]);
+            output.push(HEX[(byte & 0xf) as usize]);
+        }
+        _ => output.push(byte),
+    }
+}
+
 fn push_quoted_bytes(output: &mut Vec<u8>, bytes: &[u8]) {
     output.push(b'"');
     for &byte in bytes {
-        match byte {
-            b'"' => output.extend_from_slice(br#"\""#),
-            b'\\' => output.extend_from_slice(br#"\\"#),
-            b'\n' => output.extend_from_slice(br#"\n"#),
-            b'\r' => output.extend_from_slice(br#"\n"#),
-            b'\t' => output.extend_from_slice(br#"\t"#),
-            0x00..=0x08 | 0x0B | 0x0C | 0x0E..=0x1F => {}
-            _ => output.push(byte),
-        }
+        push_string_byte(output, byte);
     }
     output.push(b'"');
 }
 
-fn sanitize_number(token: &[u8]) -> Option<Vec<u8>> {
-    if !token
-        .iter()
-        .all(|byte| matches!(byte, b'0'..=b'9' | b'-' | b'+' | b'.' | b'e' | b'E'))
-    {
-        return None;
+// Validate before writing so ambiguous tokens can be quoted without rollback.
+// Normalize directly into the output buffer, without allocating per number.
+fn push_number(output: &mut Vec<u8>, token: &[u8]) -> bool {
+    let (negative, normalized) = match token.first() {
+        Some(b'-') => (true, &token[1..]),
+        Some(b'+') => (false, &token[1..]),
+        _ => (false, token),
+    };
+    if normalized.is_empty() {
+        output.push(b'0');
+        return true;
     }
 
-    if token == b"-" || token == b"+" {
-        return Some(b"0".to_vec());
-    }
-
-    let mut normalized = token;
-    let mut prefix = Vec::new();
-
-    if token.starts_with(b"-") {
-        prefix.push(b'-');
-        normalized = &token[1..];
-    } else if token.starts_with(b"+") {
-        normalized = &token[1..];
-    }
-
-    let exponent_index = normalized
-        .iter()
-        .position(|byte| matches!(byte, b'e' | b'E'));
-    if let Some(index) = exponent_index
-        && normalized[index + 1..]
-            .iter()
-            .any(|byte| matches!(byte, b'e' | b'E'))
-    {
-        return None;
-    }
-
+    let exponent_index = normalized.iter().position(|b| matches!(b, b'e' | b'E'));
     let (mantissa, exponent) = match exponent_index {
-        Some(index) => (&normalized[..index], Some(&normalized[index + 1..])),
+        Some(i) => (&normalized[..i], Some(&normalized[i + 1..])),
         None => (normalized, None),
     };
-
-    if mantissa.iter().filter(|&&byte| byte == b'.').count() > 1 {
-        return None;
-    }
-
-    if !mantissa
-        .iter()
-        .all(|byte| matches!(byte, b'0'..=b'9' | b'.'))
-        || mantissa.is_empty()
+    if mantissa.is_empty()
+        || !mantissa.iter().all(|b| b.is_ascii_digit() || *b == b'.')
+        || mantissa.iter().filter(|&&b| b == b'.').count() > 1
     {
-        return None;
+        return false;
     }
-
     if let Some(exponent) = exponent {
-        let digits = if let Some(first) = exponent.first() {
-            if matches!(first, b'+' | b'-') {
-                &exponent[1..]
-            } else {
-                exponent
-            }
-        } else {
-            exponent
+        let digits = match exponent.first() {
+            Some(b'+' | b'-') => &exponent[1..],
+            _ => exponent,
         };
-
-        if !digits.iter().all(|byte| byte.is_ascii_digit()) {
-            return None;
+        if !digits.iter().all(u8::is_ascii_digit) {
+            return false;
         }
     }
 
-    let mut output = prefix;
-    output.extend_from_slice(&normalize_mantissa(mantissa));
-    if mantissa.ends_with(b".") {
-        output.push(b'0');
+    if negative {
+        output.push(b'-');
     }
-
+    let dot = mantissa.iter().position(|&b| b == b'.');
+    let integer = dot.map_or(mantissa, |i| &mantissa[..i]);
+    let first_nonzero = integer.iter().position(|&b| b != b'0');
+    match first_nonzero {
+        Some(i) => output.extend_from_slice(&integer[i..]),
+        None => output.push(b'0'),
+    }
+    if let Some(dot) = dot {
+        output.push(b'.');
+        let fraction = &mantissa[dot + 1..];
+        output.extend_from_slice(fraction);
+        if fraction.is_empty() {
+            output.push(b'0');
+        }
+    }
     if let Some(exponent) = exponent {
         output.push(b'e');
         output.extend_from_slice(exponent);
+        if exponent.is_empty() || matches!(exponent.last(), Some(b'+' | b'-')) {
+            output.push(b'0');
+        }
     }
-
-    if matches!(
-        normalized.last(),
-        Some(b'e' | b'E') | Some(b'+') | Some(b'-')
-    ) && exponent.is_some()
-    {
-        output.push(b'0');
-    }
-
-    Some(output)
-}
-
-fn normalize_mantissa(mantissa: &[u8]) -> Vec<u8> {
-    let dot_index = mantissa.iter().position(|&byte| byte == b'.');
-    let integer = dot_index.map_or(mantissa, |index| &mantissa[..index]);
-    let fraction = dot_index.map(|index| &mantissa[index + 1..]);
-
-    let mut first_non_zero = 0;
-    while first_non_zero < integer.len() && integer[first_non_zero] == b'0' {
-        first_non_zero += 1;
-    }
-
-    let mut output = Vec::with_capacity(mantissa.len().max(1));
-    if first_non_zero == integer.len() {
-        output.push(b'0');
-    } else {
-        output.extend_from_slice(&integer[first_non_zero..]);
-    }
-
-    if let Some(fraction) = fraction {
-        output.push(b'.');
-        output.extend_from_slice(fraction);
-    }
-
-    output
+    true
 }
 
 #[cfg(test)]
 mod tests {
-    use super::repair;
+    fn repair(input: &str) -> String {
+        super::repair(input).unwrap()
+    }
+
+    #[test]
+    fn bounds_nesting_without_truncating_input() {
+        let allowed = "[".repeat(super::MAX_DEPTH);
+        assert!(super::repair(&allowed).is_ok());
+        assert_eq!(
+            super::repair(&(allowed + "[")),
+            Err(super::DepthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn preserves_missing_values_and_container_boundaries() {
+        assert_eq!(repair("{a:,b:2}"), r#"{"a":null,"b":2}"#);
+        assert_eq!(repair("[{a:1],2]"), r#"[{"a":1}]"#);
+        assert_eq!(repair("[{a:1}, {b:}]"), r#"[{"a":1},{"b":null}]"#);
+        assert_eq!(repair("{a 1,b 2}"), r#"{"a":1,"b":2}"#);
+    }
 
     #[test]
     fn repairs_target_cases() {

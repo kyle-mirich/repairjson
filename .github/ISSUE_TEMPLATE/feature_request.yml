@@ -1,0 +1,22 @@
+name: Feature request
+description: Propose a repair rule, API improvement, or packaging enhancement.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to do? Include non-sensitive sample input if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: Show the expected value and explain how ambiguous input should be treated.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

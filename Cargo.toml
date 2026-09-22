@@ -1,7 +1,8 @@
 [package]
 name = "repairjson"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2024"
+rust-version = "1.88"
 description = "Rust-backed repair of malformed JSON for LLM-style outputs"
 readme = "README.md"
 license = "MIT"
@@ -11,10 +12,9 @@ documentation = "https://github.com/kyle-mirich/repairjson#readme"
 keywords = ["json", "repair", "llm", "python"]
 categories = ["parser-implementations", "text-processing"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "repairjson"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.29.0", features = ["abi3-py38", "extension-module"] }
+pyo3 = { version = "0.29.2", features = ["abi3-py38", "extension-module"] }

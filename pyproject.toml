@@ -7,14 +7,14 @@ name = "repairjson"
 description = "Rust-backed repair of malformed JSON for LLM-style outputs"
 requires-python = ">=3.8"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Kyle Mirich" }]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 keywords = ["json", "repair", "llm", "rust", "pyo3"]
@@ -25,12 +25,16 @@ Homepage = "https://github.com/kyle-mirich/repairjson"
 Repository = "https://github.com/kyle-mirich/repairjson"
 Documentation = "https://github.com/kyle-mirich/repairjson#readme"
 Issues = "https://github.com/kyle-mirich/repairjson/issues"
+Changelog = "https://github.com/kyle-mirich/repairjson/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
+test = ["pytest>=7.4", "hypothesis>=6"]
 dev = [
     "maturin>=1.12,<2.0",
-    "pytest>=8",
-    "twine>=6",
+    "pytest>=7.4",
+    "hypothesis>=6",
+    "ruff>=0.11",
+    "twine>=6; python_version >= '3.9'",
 ]
 benchmark = [
     "json-repair>=0.50; python_version >= '3.10'",
@@ -38,6 +42,24 @@ benchmark = [
 
 [tool.maturin]
 python-source = "python"
+include = [
+    { path = "Cargo.lock", format = "sdist" },
+    { path = "python/tests/**", format = "sdist" },
+    { path = "docs/**", format = "sdist" },
+    { path = "CHANGELOG.md", format = "sdist" },
+    { path = "CONTRIBUTING.md", format = "sdist" },
+]
 
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]
+addopts = "--strict-markers --strict-config"
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+
+[tool.ruff.per-file-target-version]
+"scripts/*.py" = "py311"

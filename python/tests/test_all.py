@@ -1,10 +1,11 @@
 import json
+from importlib.metadata import version
 
 import repairjson
 
 
 def test_package_exposes_version():
-    assert repairjson.__version__ == "0.1.3"
+    assert repairjson.__version__ == version("repairjson")
 
 
 def test_repair_smoke():
@@ -19,16 +20,13 @@ def test_repair_to_string_smoke():
 
 def test_repair_json_smoke():
     payload = '{"nested": {"value": true}}'
-    assert json.loads(repairjson.repair_json(payload)) == {
-        "nested": {"value": True}
-    }
+    assert json.loads(repairjson.repair_json(payload)) == {"nested": {"value": True}}
 
 
 def test_repairs_target_cases():
     assert repairjson.repair("{'a': 'b'}") == '{"a":"b"}'
     assert (
-        repairjson.repair("{'a': True, 'b': False, 'c': None}")
-        == '{"a":true,"b":false,"c":null}'
+        repairjson.repair("{'a': True, 'b': False, 'c': None}") == '{"a":true,"b":false,"c":null}'
     )
     assert repairjson.repair("{a: 1, b: 2}") == '{"a":1,"b":2}'
     assert repairjson.repair('{"a": 1,}') == '{"a":1}'
@@ -77,17 +75,11 @@ def test_valid_json_preserves_values():
 
 def test_prefers_structural_json_after_chatty_preamble():
     assert repairjson.repair("result = {a:1}") == '{"a":1}'
-    assert (
-        repairjson.repair("Here is the JSON:\n```json\n{a:1}\n```")
-        == '{"a":1}'
-    )
+    assert repairjson.repair("Here is the JSON:\n```json\n{a:1}\n```") == '{"a":1}'
     assert repairjson.repair("### JSON\n{a:1}") == '{"a":1}'
     assert repairjson.repair("- JSON follows\n{a:1}") == '{"a":1}'
     assert repairjson.repair("1. JSON follows\n[1,2]") == "[1,2]"
     assert repairjson.repair("Items follow: [1,2,3]") == "[1,2,3]"
     assert repairjson.repair("I'm sorry, here is JSON: {a:1}") == '{"a":1}'
     assert repairjson.repair("Note: 'quoted preamble' {a:1}") == '{"a":1}'
-    assert (
-        repairjson.repair("Note: '{not the payload}' {a:1}")
-        == '{"a":1}'
-    )
+    assert repairjson.repair("Note: '{not the payload}' {a:1}") == '{"a":1}'

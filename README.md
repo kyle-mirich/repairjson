@@ -3,122 +3,89 @@
 [![CI](https://github.com/kyle-mirich/repairjson/actions/workflows/CI.yml/badge.svg)](https://github.com/kyle-mirich/repairjson/actions/workflows/CI.yml)
 [![PyPI](https://img.shields.io/pypi/v/repairjson)](https://pypi.org/project/repairjson/)
 [![Python](https://img.shields.io/pypi/pyversions/repairjson)](https://pypi.org/project/repairjson/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kyle-mirich/repairjson/blob/main/LICENSE)
 
-`repairjson` is a Rust-backed Python library that turns common forms of malformed, LLM-style JSON into valid JSON. It is useful at system boundaries where model output is close to JSON but may contain Python literals, missing punctuation, Markdown fences, or a truncated container.
-
-## What it repairs
-
-- Single-quoted strings and unquoted object keys
-- Python literals such as `True`, `False`, and `None`
-- Missing or trailing commas
-- Truncated objects and arrays
-- Common malformed number forms
-- Raw newlines, tabs, and control characters inside strings
-- Leading Markdown fences and conversational preambles before an object or array
-
-The repair engine is byte-oriented and returns compact JSON. `loads()` performs repair and then delegates deserialization to Python's standard `json` module.
-
-## Installation
+A small Rust-backed Python library for repairing malformed JSON from language models and other text sources. Recover a value from single quotes, Python literals, missing punctuation, Markdown fences, and truncated containers.
 
 ```bash
 python -m pip install repairjson
 ```
-
-## Quick start
 
 ```python
 import repairjson
 
 source = "{user: 'alice', active: True, tags: ['x', 'y',],}"
 
-fixed = repairjson.repair(source)
-print(fixed)
+print(repairjson.repair(source))
 # {"user":"alice","active":true,"tags":["x","y"]}
 
-value = repairjson.loads(source)
-print(value["user"])
-# alice
+print(repairjson.loads(source))
+# {'user': 'alice', 'active': True, 'tags': ['x', 'y']}
 ```
+
+CPython 3.8+ is supported. Binary wheels cover Windows, macOS, glibc Linux, and musl Linux on the [release platforms](https://github.com/kyle-mirich/repairjson/blob/main/docs/releases.md#platforms). Installation from a wheel requires no Rust toolchain and adds no Python runtime dependencies. Source builds require Rust 1.88+ and a C linker. PyPy and free-threaded Python wheels are not part of the supported release matrix.
+
+## Repair examples
+
+| Input | Repaired JSON |
+| --- | --- |
+| `{name: 'Ada', ready: True}` | `{"name":"Ada","ready":true}` |
+| `{items: [1 2 3,]}` | `{"items":[1,2,3]}` |
+| `{count 2}` | `{"count":2}` |
+| `{missing:, next: 2}` | `{"missing":null,"next":2}` |
+| `{items: [1, 2` | `{"items":[1,2]}` |
+| `{value: +.5, other: 01, exp: 1e+}` | `{"value":0.5,"other":1,"exp":1e+0}` |
+| `Here is the result: {ok: True}` | `{"ok":true}` |
+
+Quoted Unicode and JSON escapes are preserved. Raw control characters inside strings are escaped, including carriage returns and NUL bytes. Unquoted Unicode keys and values are accepted. See [repair rules and boundaries](https://github.com/kyle-mirich/repairjson/blob/main/docs/behavior.md) for exact examples and ambiguous cases.
 
 ## API
 
-### `repairjson.repair(input: str) -> str`
+| Name | Result |
+| --- | --- |
+| `repair(input: str) -> str` | One compact JSON value as text |
+| `loads(input: str) -> Any` | The repaired value decoded by Python's `json.loads()` |
+| `repair_to_string(input: str) -> str` | Compatibility alias for `repair()` |
+| `repair_json(input: str) -> str` | Compatibility alias for `repair()` |
+| `__version__` | Installed package version |
+| `MAX_DEPTH` | Maximum nesting: 128 simultaneously open containers |
 
-Returns a repaired JSON string. For example:
+All functions accept a Python `str`. Empty input becomes `null` (`None` with `loads`). More than 128 nested objects/arrays raises `ValueError`; non-string inputs raise `TypeError`. Raw unpaired surrogates cannot cross the UTF-8 extension boundary and raise `UnicodeError`; escaped forms such as `r'"\ud800"'` are accepted. `loads` also inherits Python's numeric conversion limits and errors.
 
-```python
-repairjson.repair("Here is the JSON:\n```json\n{answer: 42}\n```")
-# '{"answer":42}'
-```
+The Rust repair step releases the GIL. Each call owns its parser state, so independent inputs can be repaired from multiple Python threads. Type stubs and a `py.typed` marker are included.
 
-### `repairjson.loads(input: str) -> object`
+## Choosing a repair policy
 
-Repairs the input and returns the Python value produced by `json.loads()`.
+Repair is heuristic: it produces a plausible value, not proof of the source's intended meaning. Validate the result against your application's expected schema. This is useful for recovering a model's response; it is not a substitute for strict parsing when accepting configuration, authorizations, or signed data.
 
-`repair_to_string()` and `repair_json()` remain available as compatibility aliases for `repair()`.
+- The first object or array outside quotes takes precedence over a prose preamble. Otherwise the first scalar is parsed.
+- Text after the recovered value is ignored. This is not a JSON Lines or streaming parser.
+- A missing closing delimiter is inserted; an encountered parent delimiter ends the nested container. Later text may therefore be excluded.
+- Duplicate keys remain in repaired text; `loads` keeps the last value, like Python's JSON decoder.
+- Comments, JavaScript expressions, and arbitrary multiword bare strings are not supported syntax.
+- Callers should bound input size. Repair uses memory proportional to input/output size; the nesting limit does not limit large strings or arrays.
 
-## Limitations and safety
+The project is alpha software. Version 0.2 improves several repair choices and adds a nesting error; see the [migration notes](https://github.com/kyle-mirich/repairjson/blob/main/CHANGELOG.md#020---2026-09-21).
 
-Repair is heuristic and can be lossy. Ambiguous input may have more than one reasonable interpretation; callers should validate the returned value against an expected schema before using it. The library extracts the first object or array found after a conversational preamble and ignores trailing prose after the parsed value.
+## Benchmarks
 
-This package does not perform schema validation, stream parsing, or security policy enforcement. Apply normal input-size and nesting limits when processing untrusted data. If exact preservation is required, reject malformed input instead of repairing it.
-
-The package is currently an alpha release. See [CHANGELOG.md](CHANGELOG.md) for release history.
-
-## Benchmarking
-
-The benchmark harness compares `repairjson` with the Python `json-repair` package across generated malformed-input profiles:
-
-```bash
-uv run --extra benchmark python benchmark.py --dataset all
-```
-
-The benchmark requires Python 3.10 or newer because of its comparison dependency. It checks a sample for semantic equivalence before reporting timings. Results vary with hardware, package versions, and input shape, so the project does not claim a fixed speedup.
-
-## Development
-
-Prerequisites: Python 3.8 or newer, Rust stable, and [`uv`](https://docs.astral.sh/uv/).
+The [benchmark harness](https://github.com/kyle-mirich/repairjson/blob/main/benchmark.py) compares repair-to-string throughput with Python's `json-repair`. It generates six synthetic corpora of many small records, checks sampled output equivalence, warms both implementations, alternates execution order, and reports repeated timings with environment metadata.
 
 ```bash
-git clone https://github.com/kyle-mirich/repairjson.git
-cd repairjson
-uv venv
-uv pip install -e ".[dev]"
+uv venv --python 3.12
+uv pip install -e ".[dev,benchmark]"
+.venv/bin/python benchmark.py --megabytes 1 --repeat 3 --output benchmarks/local.json
 ```
 
-Run the same checks used by CI:
+See [methodology and a reproducible sample run](https://github.com/kyle-mirich/repairjson/blob/main/benchmarks/README.md). These corpora do not measure repair accuracy, large-document latency, or performance on your own model output. No universal speedup is promised.
 
-```bash
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-.venv/bin/python -m pytest -q
-```
+## Development and community
 
-Build and inspect release artifacts:
+Start with [CONTRIBUTING.md](https://github.com/kyle-mirich/repairjson/blob/main/CONTRIBUTING.md) for setup, checks, and parser changes. The [architecture notes](https://github.com/kyle-mirich/repairjson/blob/main/docs/flows.md) explain the parser and [release guide](https://github.com/kyle-mirich/repairjson/blob/main/docs/releases.md) covers publication.
 
-```bash
-.venv/bin/maturin build --release --sdist -i .venv/bin/python -o dist
-.venv/bin/twine check dist/*
-```
+- [Report a bug](https://github.com/kyle-mirich/repairjson/issues/new?template=bug_report.yml) with a minimal, non-sensitive example.
+- [Request a feature](https://github.com/kyle-mirich/repairjson/issues/new?template=feature_request.yml) with the input and intended behavior.
+- Report security issues privately using the [security policy](https://github.com/kyle-mirich/repairjson/blob/main/SECURITY.md).
+- Read the [changelog](https://github.com/kyle-mirich/repairjson/blob/main/CHANGELOG.md) and [contributor conduct guidelines](https://github.com/kyle-mirich/repairjson/blob/main/CODE_OF_CONDUCT.md).
 
-## Project structure
-
-- `src/lexer.rs`: byte-level input traversal and fence handling
-- `src/parser.rs`: repair state machine and normalization logic
-- `src/lib.rs`: PyO3 Python API
-- `python/tests/`: end-to-end Python API tests
-- `benchmark.py`: generated-corpus benchmark harness
-- `.github/workflows/CI.yml`: checks, wheels, attestations, and trusted publishing
-- [`docs/flows.md`](docs/flows.md): repair and release flows
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and pull request expectations.
-
-Report security issues privately as described in [SECURITY.md](SECURITY.md).
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+MIT licensed. See [LICENSE](https://github.com/kyle-mirich/repairjson/blob/main/LICENSE).

@@ -1,7 +1,8 @@
-from . import repairjson as _repairjson
-from .repairjson import *
+"""Repair common malformed JSON with a Rust parser.
 
+See https://github.com/kyle-mirich/repairjson for repair rules and limitations.
+"""
 
-__doc__ = _repairjson.__doc__
-if hasattr(_repairjson, "__all__"):
-    __all__ = _repairjson.__all__
+from .repairjson import MAX_DEPTH, __version__, loads, repair, repair_json, repair_to_string
+
+__all__ = ["MAX_DEPTH", "__version__", "loads", "repair", "repair_json", "repair_to_string"]

@@ -3,6 +3,8 @@ target/
 dist/
 *.egg-info/
 .pytest_cache/
+.hypothesis/
+.ruff_cache/
 .coverage
 htmlcov/
 __pycache__/
@@ -14,3 +16,4 @@ __pycache__/
 tmp_*.jsonl
 benchmarks/generated/
 uv.lock
+benchmarks/local.json

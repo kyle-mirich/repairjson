@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
+"""Compare repair-to-string throughput on deterministic synthetic records."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import platform
+import statistics
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from importlib.metadata import version
 from pathlib import Path
 from typing import Callable
 
@@ -19,16 +24,12 @@ RECORD_SEPARATOR = "\x1e\n"
 class DatasetProfile:
     name: str
     sample_factory: Callable[[int], str]
-    target_megabytes: int
-    verify_equivalence: bool = True
 
 
 def dense_object_sample(index: int) -> str:
     user = f"user_{index % 10}"
     return (
-        "{user: '"
-        + user
-        + "', active: True, score: 12.5, tags: ['x', 'y',], meta: "
+        "{user: '" + user + "', active: True, score: 12.5, tags: ['x', 'y',], meta: "
         "{retry: False note: 'line one\\nline two'}}"
     )
 
@@ -105,43 +106,34 @@ PROFILES = {
     "dense_object": DatasetProfile(
         name="dense_object",
         sample_factory=dense_object_sample,
-        target_megabytes=20,
     ),
     "fenced_payload": DatasetProfile(
         name="fenced_payload",
         sample_factory=fenced_payload_sample,
-        target_megabytes=20,
     ),
     "chatty_nested": DatasetProfile(
         name="chatty_nested",
         sample_factory=chatty_nested_sample,
-        target_megabytes=20,
     ),
     "long_text": DatasetProfile(
         name="long_text",
         sample_factory=long_text_sample,
-        target_megabytes=20,
     ),
     "array_heavy": DatasetProfile(
         name="array_heavy",
         sample_factory=array_heavy_sample,
-        target_megabytes=20,
     ),
     "truncated_nested": DatasetProfile(
         name="truncated_nested",
         sample_factory=truncated_nested_sample,
-        target_megabytes=20,
     ),
 }
 
 
-def generate_dataset(profile: DatasetProfile, root: Path) -> Path:
+def generate_dataset(profile: DatasetProfile, root: Path, megabytes: int) -> Path:
     root.mkdir(parents=True, exist_ok=True)
-    path = root / f"{profile.name}_{profile.target_megabytes}mb.rsbench"
-    target_bytes = profile.target_megabytes * 1024 * 1024
-
-    if path.exists() and path.stat().st_size >= target_bytes:
-        return path
+    path = root / f"{profile.name}_{megabytes}mib.rsbench"
+    target_bytes = megabytes * 1024 * 1024
 
     size = 0
     index = 0
@@ -160,78 +152,114 @@ def read_records(path: Path) -> list[str]:
     return [record for record in records if record]
 
 
-def benchmark_lines(path: Path) -> dict[str, float]:
-    lines = read_records(path)
-
+def measure(records: list[str], function: Callable[[str], str]) -> float:
     start = time.perf_counter()
-    for line in lines:
-        json_repair.repair_json(line, skip_json_loads=True)
-    python_seconds = time.perf_counter() - start
+    for record in records:
+        function(record)
+    return time.perf_counter() - start
 
-    start = time.perf_counter()
-    for line in lines:
-        repairjson.repair(line)
-    rust_seconds = time.perf_counter() - start
 
+def python_repair(source: str) -> str:
+    return json_repair.repair_json(source, skip_json_loads=True)
+
+
+def verify_outputs(records: list[str], sample_count: int) -> None:
+    # Spread verification over the corpus instead of checking only its prefix.
+    count = min(sample_count, len(records))
+    for index in range(count):
+        record_index = index * len(records) // count
+        source = records[record_index]
+        if json.loads(python_repair(source)) != json.loads(repairjson.repair(source)):
+            raise AssertionError(f"Implementations disagree at record {record_index}")
+
+
+def benchmark_records(records: list[str], repeat: int) -> dict:
+    functions = {"python": python_repair, "rust": repairjson.repair}
+    samples = {name: [] for name in functions}
+    # Warm both paths before timing; vary order to reduce first-run bias.
+    for function in functions.values():
+        for record in records[:100]:
+            function(record)
+    for iteration in range(repeat):
+        order = ["python", "rust"] if iteration % 2 == 0 else ["rust", "python"]
+        for name in order:
+            samples[name].append(measure(records, functions[name]))
+    python_seconds = statistics.median(samples["python"])
+    rust_seconds = statistics.median(samples["rust"])
     return {
-        "python_seconds": python_seconds,
-        "rust_seconds": rust_seconds,
+        "python_seconds_median": python_seconds,
+        "rust_seconds_median": rust_seconds,
         "speedup": python_seconds / rust_seconds,
-        "line_count": float(len(lines)),
-        "bytes": float(path.stat().st_size),
+        "samples_seconds": samples,
     }
 
 
-def verify_outputs(path: Path) -> None:
-    for line in read_records(path)[:100]:
-        python_output = json_repair.repair_json(line, skip_json_loads=True)
-        rust_output = repairjson.repair(line)
-        if json.loads(python_output) != json.loads(rust_output):
-            raise AssertionError(
-                "Rust repair output diverged semantically from python json_repair "
-                "within the verification sample."
-            )
+def positive_integer(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dataset", choices=["all", *PROFILES], default="all")
+    parser.add_argument("--data-dir", default="benchmarks/generated")
     parser.add_argument(
-        "--dataset",
-        choices=["all", *PROFILES.keys()],
-        default="all",
-        help="Dataset profile to benchmark.",
+        "--megabytes",
+        type=positive_integer,
+        default=20,
+        help="MiB of small records per profile (not one large document).",
     )
+    parser.add_argument("--repeat", type=positive_integer, default=3)
     parser.add_argument(
-        "--data-dir",
-        default="benchmarks/generated",
-        help="Directory for generated benchmark corpora.",
+        "--verify-samples",
+        type=positive_integer,
+        default=100,
+        help="Records checked for semantic equivalence before timing.",
     )
+    parser.add_argument("--output", type=Path, help="Also save the JSON report to this file.")
     args = parser.parse_args()
 
     selected = PROFILES.values() if args.dataset == "all" else [PROFILES[args.dataset]]
-
     results = []
-    data_root = Path(args.data_dir)
-
     for profile in selected:
-        path = generate_dataset(profile, data_root)
-        metrics = benchmark_lines(path)
-        if profile.verify_equivalence:
-            verify_outputs(path)
-
+        path = generate_dataset(profile, Path(args.data_dir), args.megabytes)
+        records = read_records(path)
+        verify_outputs(records, args.verify_samples)
+        metrics = benchmark_records(records, args.repeat)
         results.append(
             {
                 "dataset": profile.name,
-                "path": str(path),
-                "bytes": int(metrics["bytes"]),
-                "line_count": int(metrics["line_count"]),
-                "python_seconds": round(metrics["python_seconds"], 6),
-                "rust_seconds": round(metrics["rust_seconds"], 6),
-                "speedup": round(metrics["speedup"], 2),
+                "bytes": path.stat().st_size,
+                "record_count": len(records),
+                "verified_records": min(args.verify_samples, len(records)),
+                **metrics,
             }
         )
 
-    print(json.dumps(results, indent=2))
+    report = {
+        "environment": {
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "machine": platform.machine(),
+            "repairjson": version("repairjson"),
+            "json-repair": version("json-repair"),
+        },
+        "method": {
+            "mebibytes_per_dataset": args.megabytes,
+            "repeat": args.repeat,
+            "statistic": "median",
+            "comparison": "repair-to-string; json-repair skip_json_loads=True",
+        },
+        "results": results,
+    }
+    text = json.dumps(report, indent=2) + "\n"
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(text, encoding="utf-8")
+    print(text, end="")
 
 
 if __name__ == "__main__":

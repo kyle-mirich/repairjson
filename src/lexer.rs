@@ -6,7 +6,7 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
-        let bytes = input.as_bytes();
+        let bytes = input.strip_prefix('\u{feff}').unwrap_or(input).as_bytes();
         let (pos, end) = trim_markdown_fences(bytes);
         Self { bytes, pos, end }
     }
@@ -95,22 +95,11 @@ impl<'a> Lexer<'a> {
         false
     }
 
-    pub fn peek_non_whitespace(&self) -> Option<u8> {
-        let mut cursor = self.pos;
-        while cursor < self.end {
-            let byte = self.bytes[cursor];
-            if !byte.is_ascii_whitespace() {
-                return Some(byte);
-            }
-            cursor += 1;
-        }
-        None
-    }
-
     pub fn read_bare_token(&mut self) -> &'a [u8] {
         let start = self.pos;
         while let Some(byte) = self.peek() {
-            if byte.is_ascii_whitespace() || matches!(byte, b',' | b'[' | b']' | b'{' | b'}' | b':')
+            if byte.is_ascii_whitespace()
+                || matches!(byte, b',' | b'[' | b']' | b'{' | b'}' | b':' | b'"' | b'\'')
             {
                 break;
             }
