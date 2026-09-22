@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- Line and block comments outside strings are skipped instead of becoming object keys (reported in [#2](https://github.com/kyle-mirich/repairjson/issues/2)).
+- Ambiguous unescaped inner quotes in object values raise `ValueError` instead of turning bare string fragments into keys.
 - Missing object values no longer consume the next field (`{a:,b:2}` now preserves both keys).
 - Mismatched closing delimiters end the appropriate container instead of absorbing sibling data.
 - Raw and escaped control characters are preserved through JSON escapes, including NUL and CRLF.
@@ -36,6 +38,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Migration notes
 
+- Ambiguous bare fragments following quoted object values now raise `ValueError`; escape inner quotes or make the next key/value separator explicit.
 - Inputs deeper than 128 containers now raise `ValueError` instead of risking a process abort. Handle this error at the input boundary.
 - Control characters are now retained, so decoded strings may differ from 0.1.x output that deleted them or normalized CRLF.
 - Missing-value, missing-colon, and mismatched-delimiter repairs intentionally change some ambiguous results. Review the [behavior reference](docs/behavior.md) if your application depended on the previous heuristics.

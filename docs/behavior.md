@@ -19,7 +19,9 @@ If no container is found, a scalar is read. Empty input or input with no recogni
 - A trailing backslash is preserved as a literal backslash.
 - Raw U+0000–U+001F characters are escaped without deleting them; CRLF remains two characters.
 - `True`/`False` become `true`/`false`; `None`, `none`, and `Null` become `null`.
-- Bare tokens, including Unicode tokens, become strings unless recognized as numbers or literals. Whitespace and JSON punctuation end bare tokens. Multiword bare strings, comments, and JavaScript expressions are not supported.
+- Bare tokens, including Unicode tokens, become strings unless recognized as numbers or literals. Whitespace and JSON punctuation end bare tokens. Multiword bare strings and JavaScript expressions are not supported.
+- Line (`//`) and block (`/* ... */`) comments outside strings are skipped, including during preamble scanning. Unterminated comments run to EOF; open containers are then closed. Comment markers inside strings remain literal text.
+- A bare fragment after a quoted object value must be followed by a colon to be treated as a missing-comma key. Otherwise repair raises `ValueError` for an ambiguous inner quote. For example, `{"command": "say "hello" now"}` is rejected; escape the inner quotes as `\"` to preserve the intended string. This is a conservative check for a common ambiguity, not a complete detector for every broken quoting pattern.
 - `NaN` and `Infinity` become strings. A syntactically valid but extremely large exponent can still decode to infinity in Python; validate numeric ranges separately.
 
 ## Numbers

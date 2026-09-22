@@ -60,7 +60,7 @@ uv pip install --python .venv-wheel/bin/python "pytest>=7.4" "hypothesis>=6"
 4. Explain ambiguous interpretations in `docs/behavior.md` and the changelog.
 5. Run the checks above. Use the [benchmark](benchmarks/README.md) for performance changes.
 
-Avoid adding broad format support under a narrow fix. Comments, streaming, and JavaScript parsing require their own design decisions. Do not add private model payloads or generated corpora to the repository.
+Avoid adding broad format support under a narrow fix. Streaming and JavaScript parsing require their own design decisions. Do not add private model payloads or generated corpora to the repository.
 
 ## Pull requests and releases
 

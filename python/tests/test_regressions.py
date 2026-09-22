@@ -106,3 +106,51 @@ def test_type_information_is_installed():
     package = Path(repairjson.__file__).parent
     assert package.joinpath("py.typed").is_file()
     assert package.joinpath("repairjson.pyi").is_file()
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ('{"command":"printf ok" // keep this\\n}', {"command": "printf ok"}),
+        ('{/*a*/"command":"printf ok"}', {"command": "printf ok"}),
+        ("{a:1/* note */,b:2 // line\n,c:3}", {"a": 1, "b": 2, "c": 3}),
+        ("[1/* note */, // line\r\n2]", [1, 2]),
+        ("/* [ignore me] */ Here: {a:1}", {"a": 1}),
+        ("Here: /* [ignore me] */ {a:1}", {"a": 1}),
+        ("// [ignore me]\n{a:1}", {"a": 1}),
+        ("{/* unfinished", {}),
+        ("[1, /* unfinished", [1]),
+        ("/* only a comment */", None),
+        (
+            '{url:"https://example.com",text:"/*literal*/ //literal"}',
+            {"url": "https://example.com", "text": "/*literal*/ //literal"},
+        ),
+        ('{a:"value" next:2}', {"a": "value", "next": 2}),
+        ('{a:"value"next:2}', {"a": "value", "next": 2}),
+        ('{a:"value"/*note*/名字:2}', {"a": "value", "名字": 2}),
+        ('{a:"value" // note\n next:2}', {"a": "value", "next": 2}),
+    ],
+)
+def test_comments_and_string_boundaries(source, expected):
+    assert repairjson.loads(source) == expected
+
+
+@pytest.mark.parametrize(
+    "function",
+    [repairjson.repair, repairjson.loads, repairjson.repair_json, repairjson.repair_to_string],
+)
+@pytest.mark.parametrize(
+    "source",
+    [
+        '{"command": "say "hello" now"}',
+        '{"command": "say "你好" now"}',
+        '{"command": "say "42" now"}',
+    ],
+)
+def test_rejects_ambiguous_inner_quotes(function, source):
+    with pytest.raises(ValueError, match="Ambiguous unescaped quote in object value"):
+        function(source)
+
+
+def test_escaped_inner_quotes_are_preserved():
+    assert repairjson.loads(r'{"command": "say \"hello\" now"}') == {"command": 'say "hello" now'}

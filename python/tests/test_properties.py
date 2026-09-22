@@ -31,7 +31,11 @@ def test_valid_json_preserves_values(value, ensure_ascii):
 @settings(max_examples=1000, deadline=None, derandomize=True)
 @given(st.text(max_size=1000))
 def test_arbitrary_unicode_produces_parseable_idempotent_json(source):
-    repaired = repairjson.repair(source)
+    try:
+        repaired = repairjson.repair(source)
+    except ValueError as error:
+        assert "Ambiguous unescaped quote in object value" in str(error)
+        return
     json.loads(repaired)
     assert repairjson.repair(repaired) == repaired
 
@@ -39,7 +43,11 @@ def test_arbitrary_unicode_produces_parseable_idempotent_json(source):
 @settings(max_examples=1000, deadline=None, derandomize=True)
 @given(st.text(alphabet="{}[]:,\\\"'0123456789.eE+-truefalsnN \n\t\x00中🙂", max_size=300))
 def test_syntax_noise_produces_valid_json(source):
-    repaired = repairjson.repair(source)
+    try:
+        repaired = repairjson.repair(source)
+    except ValueError as error:
+        assert "Ambiguous unescaped quote in object value" in str(error)
+        return
     json.loads(repaired)
     assert repairjson.repair(repaired) == repaired
 

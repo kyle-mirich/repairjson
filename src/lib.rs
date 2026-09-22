@@ -9,7 +9,7 @@ use pyo3::types::PyModule;
 
 /// Repair malformed JSON and return a valid JSON string.
 ///
-/// Raises ValueError when the input exceeds 128 nested containers.
+/// Raises ValueError for excessive nesting or ambiguous inner object-value quotes.
 #[pyfunction(name = "repair")]
 fn py_repair(py: Python<'_>, input: &str) -> PyResult<String> {
     py.detach(|| parser::repair(input))

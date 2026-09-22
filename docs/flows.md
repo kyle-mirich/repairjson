@@ -4,7 +4,7 @@
 
 | Path | Responsibility |
 | --- | --- |
-| `src/lexer.rs` | Byte cursor, token boundaries, BOM/fence trimming, preamble scanning |
+| `src/lexer.rs` | Byte cursor, token boundaries, BOM/fence trimming, comment skipping, preamble scanning |
 | `src/parser.rs` | Container repair, string escaping, literal/number normalization, nesting bound |
 | `src/lib.rs` | PyO3 bindings, Python errors, GIL release, version and depth metadata |
 | `python/repairjson/` | Explicit Python exports and packaged typing information |
@@ -19,9 +19,9 @@
 3. The lexer trims a BOM and surrounding fences, then searches outside quotes for an object or array payload.
 4. A bounded recursive-descent parser writes compact JSON into one output buffer. Each container consumes its own closing delimiter; an encountered parent delimiter is left for the parent.
 5. Strings share one escaping routine. Numbers are validated before being normalized directly into the output buffer, without a per-number allocation or floating-point conversion.
-6. A successful result becomes a Python string. `loads()` additionally calls Python's `json.loads()` after reattaching. A depth-limit error becomes `ValueError`.
+6. A successful result becomes a Python string. `loads()` additionally calls Python's `json.loads()` after reattaching. Depth-limit and ambiguous-quote errors become `ValueError`.
 
-The lexer and parser advance through input without backtracking. The preamble scan can visit bytes once before parsing them; this is not a strict one-pass parser. Time is linear in input length, with memory proportional to input/output size and bounded native recursion. Parser state is local to each call; no unsafe Rust or global mutable state is used in this crate.
+The main lexer cursor only advances. The preamble scan and limited lookahead for missing-comma keys can revisit bytes; this is not a strict one-pass parser. Time is linear in input length, with memory proportional to input/output size and bounded native recursion. Parser state is local to each call; no unsafe Rust or global mutable state is used in this crate.
 
 ## Design boundaries
 

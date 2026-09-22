@@ -50,7 +50,7 @@ Quoted Unicode and JSON escapes are preserved. Raw control characters inside str
 | `__version__` | Installed package version |
 | `MAX_DEPTH` | Maximum nesting: 128 simultaneously open containers |
 
-All functions accept a Python `str`. Empty input becomes `null` (`None` with `loads`). More than 128 nested objects/arrays raises `ValueError`; non-string inputs raise `TypeError`. Raw unpaired surrogates cannot cross the UTF-8 extension boundary and raise `UnicodeError`; escaped forms such as `r'"\ud800"'` are accepted. `loads` also inherits Python's numeric conversion limits and errors.
+All functions accept a Python `str`. Empty input becomes `null` (`None` with `loads`). More than 128 nested objects/arrays raises `ValueError`. Ambiguous unescaped quotes in an object value also raise `ValueError` (for example, `{"command": "say "hello" now"}`). Escape the inner quotes before retrying. Non-string inputs raise `TypeError`. Raw unpaired surrogates cannot cross the UTF-8 extension boundary and raise `UnicodeError`; escaped forms such as `r'"\ud800"'` are accepted. `loads` also inherits Python's numeric conversion limits and errors.
 
 The Rust repair step releases the GIL. Each call owns its parser state, so independent inputs can be repaired from multiple Python threads. Type stubs and a `py.typed` marker are included.
 
@@ -62,7 +62,7 @@ Repair is heuristic: it produces a plausible value, not proof of the source's in
 - Text after the recovered value is ignored. This is not a JSON Lines or streaming parser.
 - A missing closing delimiter is inserted; an encountered parent delimiter ends the nested container. Later text may therefore be excluded.
 - Duplicate keys remain in repaired text; `loads` keeps the last value, like Python's JSON decoder.
-- Comments, JavaScript expressions, and arbitrary multiword bare strings are not supported syntax.
+- Line (`//`) and block (`/* ... */`) comments are skipped outside strings. JavaScript expressions and arbitrary multiword bare strings are not supported syntax.
 - Callers should bound input size. Repair uses memory proportional to input/output size; the nesting limit does not limit large strings or arrays.
 
 The project is alpha software. Version 0.2 improves several repair choices and adds a nesting error; see the [migration notes](https://github.com/kyle-mirich/repairjson/blob/main/CHANGELOG.md#020---2026-09-21).

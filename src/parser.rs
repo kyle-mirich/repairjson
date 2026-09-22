@@ -4,20 +4,28 @@ use crate::lexer::Lexer;
 pub const MAX_DEPTH: usize = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DepthLimitExceeded;
+pub enum RepairError {
+    DepthLimitExceeded,
+    AmbiguousQuotes,
+}
 
-impl std::fmt::Display for DepthLimitExceeded {
+impl std::fmt::Display for RepairError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "JSON nesting exceeds the limit of {MAX_DEPTH} containers"
-        )
+        match self {
+            Self::DepthLimitExceeded => write!(
+                f,
+                "JSON nesting exceeds the limit of {MAX_DEPTH} containers"
+            ),
+            Self::AmbiguousQuotes => f.write_str(
+                "Ambiguous unescaped quote in object value; escape inner quotes before repair",
+            ),
+        }
     }
 }
 
-impl std::error::Error for DepthLimitExceeded {}
+impl std::error::Error for RepairError {}
 
-pub fn repair(input: &str) -> Result<String, DepthLimitExceeded> {
+pub fn repair(input: &str) -> Result<String, RepairError> {
     Parser::new(input).repair()
 }
 
@@ -34,10 +42,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn repair(mut self) -> Result<String, DepthLimitExceeded> {
+    fn repair(mut self) -> Result<String, RepairError> {
         self.lexer.prefer_structural_value_start();
 
-        if !self.parse_value(0)? {
+        if !self.parse_value(0, false)? {
             self.output.extend_from_slice(b"null");
         }
 
@@ -46,7 +54,7 @@ impl<'a> Parser<'a> {
         Ok(String::from_utf8(self.output).expect("repair output is always utf-8"))
     }
 
-    fn parse_value(&mut self, depth: usize) -> Result<bool, DepthLimitExceeded> {
+    fn parse_value(&mut self, depth: usize, object_value: bool) -> Result<bool, RepairError> {
         self.skip_to_value_start();
 
         let Some(byte) = self.lexer.peek() else {
@@ -56,7 +64,7 @@ impl<'a> Parser<'a> {
         match byte {
             b'{' | b'[' => {
                 if depth >= MAX_DEPTH {
-                    return Err(DepthLimitExceeded);
+                    return Err(RepairError::DepthLimitExceeded);
                 }
                 if byte == b'{' {
                     self.parse_object(depth + 1)?;
@@ -65,7 +73,7 @@ impl<'a> Parser<'a> {
                 }
                 Ok(true)
             }
-            b'"' | b'\'' => Ok(self.parse_string()),
+            b'"' | b'\'' => self.parse_string(object_value),
             b'+' | b'-' | b'.' | b'0'..=b'9' => Ok(self.parse_number_or_word()),
             _ if is_identifier_start(byte) => Ok(self.parse_identifier_value()),
             // Separators and closing delimiters belong to the caller. In
@@ -74,13 +82,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_object(&mut self, depth: usize) -> Result<(), DepthLimitExceeded> {
+    fn parse_object(&mut self, depth: usize) -> Result<(), RepairError> {
         self.lexer.bump();
         self.output.push(b'{');
         let mut has_entries = false;
 
         loop {
-            self.lexer.skip_whitespace();
+            self.lexer.skip_trivia();
             if self.lexer.consume_if(b'}') || self.lexer.is_eof() {
                 break;
             }
@@ -96,11 +104,11 @@ impl<'a> Parser<'a> {
             if has_entries {
                 self.output.push(b',');
             }
-            self.parse_key();
-            self.lexer.skip_whitespace();
+            self.parse_key()?;
+            self.lexer.skip_trivia();
             self.lexer.consume_if(b':');
             self.output.push(b':');
-            if !self.parse_value(depth)? {
+            if !self.parse_value(depth, true)? {
                 self.output.extend_from_slice(b"null");
             }
             has_entries = true;
@@ -110,13 +118,13 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn parse_array(&mut self, depth: usize) -> Result<(), DepthLimitExceeded> {
+    fn parse_array(&mut self, depth: usize) -> Result<(), RepairError> {
         self.lexer.bump();
         self.output.push(b'[');
         let mut has_items = false;
 
         loop {
-            self.lexer.skip_whitespace();
+            self.lexer.skip_trivia();
             if self.lexer.consume_if(b']') || self.lexer.is_eof() {
                 break;
             }
@@ -132,7 +140,7 @@ impl<'a> Parser<'a> {
             if has_items {
                 self.output.push(b',');
             }
-            self.parse_value(depth)?;
+            self.parse_value(depth, false)?;
             has_items = true;
         }
 
@@ -141,26 +149,39 @@ impl<'a> Parser<'a> {
     }
 
     // Called only after can_start_object_key has recognized a nonempty key.
-    fn parse_key(&mut self) {
+    fn parse_key(&mut self) -> Result<(), RepairError> {
         if matches!(self.lexer.peek(), Some(b'"' | b'\'')) {
-            self.parse_string();
+            self.parse_string(false)?;
         } else {
             let token = self.lexer.read_bare_token();
             push_quoted_bytes(&mut self.output, token);
         }
+        Ok(())
     }
 
-    fn parse_string(&mut self) -> bool {
+    fn parse_string(&mut self, object_value: bool) -> Result<bool, RepairError> {
         let Some(quote) = self.lexer.next() else {
-            return false;
+            return Ok(false);
         };
 
         self.output.push(b'"');
 
         while let Some(byte) = self.lexer.next() {
             if byte == quote {
+                // A bare fragment after a closing quote can be an inner quote
+                // accidentally left unescaped. Only accept it as a new key
+                // when a colon makes that interpretation explicit.
+                if object_value
+                    && self
+                        .lexer
+                        .next_significant_byte()
+                        .is_some_and(is_bare_key_start)
+                    && !self.lexer.bare_key_follows()
+                {
+                    return Err(RepairError::AmbiguousQuotes);
+                }
                 self.output.push(b'"');
-                return true;
+                return Ok(true);
             }
 
             if byte == b'\\' {
@@ -171,7 +192,7 @@ impl<'a> Parser<'a> {
         }
 
         self.output.push(b'"');
-        true
+        Ok(true)
     }
 
     fn push_escaped_char(&mut self) {
@@ -237,13 +258,13 @@ impl<'a> Parser<'a> {
     }
 
     fn skip_to_value_start(&mut self) {
-        self.lexer.skip_whitespace();
+        self.lexer.skip_trivia();
         while let Some(byte) = self.lexer.peek() {
             if is_value_start(byte) || matches!(byte, b',' | b']' | b'}') {
                 break;
             }
             self.lexer.bump();
-            self.lexer.skip_whitespace();
+            self.lexer.skip_trivia();
         }
     }
 
@@ -254,6 +275,10 @@ impl<'a> Parser<'a> {
             None => false,
         }
     }
+}
+
+fn is_bare_key_start(byte: u8) -> bool {
+    is_identifier_start(byte) || byte.is_ascii_digit() || byte == b'-'
 }
 
 fn is_identifier_start(byte: u8) -> bool {
@@ -367,7 +392,7 @@ mod tests {
         assert!(super::repair(&allowed).is_ok());
         assert_eq!(
             super::repair(&(allowed + "[")),
-            Err(super::DepthLimitExceeded)
+            Err(super::RepairError::DepthLimitExceeded)
         );
     }
 

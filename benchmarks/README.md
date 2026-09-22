@@ -34,9 +34,9 @@ Use `--dataset dense_object` for one profile and `--verify-samples 1000` for mor
 
 | Profile | Records | json-repair (s) | repairjson (s) | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dense_object` | 9,280 | 0.6963 | 0.0035 | 201.7× |
-| `fenced_payload` | 9,893 | 0.9942 | 0.0043 | 232.1× |
-| `chatty_nested` | 5,141 | 0.7518 | 0.0038 | 196.3× |
-| `long_text` | 4,069 | 0.7386 | 0.0032 | 230.9× |
-| `array_heavy` | 6,564 | 0.9046 | 0.0047 | 191.3× |
-| `truncated_nested` | 5,047 | 0.7893 | 0.0037 | 210.8× |
+| `dense_object` | 9,280 | 0.7105 | 0.0040 | 178.1× |
+| `fenced_payload` | 9,893 | 0.6541 | 0.0040 | 164.4× |
+| `chatty_nested` | 5,141 | 0.7384 | 0.0039 | 188.7× |
+| `long_text` | 4,069 | 0.7505 | 0.0033 | 225.7× |
+| `array_heavy` | 6,564 | 0.8009 | 0.0050 | 160.4× |
+| `truncated_nested` | 5,047 | 0.8483 | 0.0044 | 191.6× |
