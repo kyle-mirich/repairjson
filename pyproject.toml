@@ -48,6 +48,10 @@ include = [
     { path = "docs/**", format = "sdist" },
     { path = "CHANGELOG.md", format = "sdist" },
     { path = "CONTRIBUTING.md", format = "sdist" },
+    { path = "benchmark.py", format = "sdist" },
+    { path = "benchmarks/README.md", format = "sdist" },
+    { path = "examples/**", format = "sdist" },
+    { path = "scripts/check_inputs.py", format = "sdist" },
 ]
 
 [tool.pytest.ini_options]

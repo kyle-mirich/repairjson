@@ -1,0 +1,694 @@
+{
+  "schema_version": 2,
+  "environment": {
+    "timestamp_utc": "2026-10-01T02:03:24.410285+00:00",
+    "python": "3.12.12",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "repairjson": "0.2.0",
+    "json-repair": "0.63.5",
+    "build_label": "release-wheel",
+    "source_sha256": {
+      "benchmark.py": "f2fd8353cf1f221f601d62e940eaf0a8cb09838e01314d53f4db133c260f48c0",
+      "src/lexer.rs": "cdd5a97d3f687751935d11045168152e7b3fb6702a4635d731f4aedad3a8d4d4",
+      "src/parser.rs": "b4e5f5d6cfbf9e4600c63046d3f7503ae01ebb993d4abe91e66b0de6b9fdfbce",
+      "src/lib.rs": "24df760bd40f7ec1a41cb2f71aecdd4c337e2add50aba275a2da62653e4e3ad1",
+      "Cargo.lock": "44902b96e12a078e408d0c17c9eedef99fdb70b81c4f6dcb490b18c202732b39"
+    }
+  },
+  "method": {
+    "mebibytes_per_dataset": 1,
+    "repeat": 5,
+    "min_sample_seconds": 0.2,
+    "statistic": "median",
+    "comparison": "compact UTF-8 string-to-string; json-repair default and skip_json_loads=True",
+    "verification": "decoded values against independent fixture expectations before timing",
+    "valid_only_baseline": "json_roundtrip = json.loads + compact UTF-8 json.dumps"
+  },
+  "results": [
+    {
+      "dataset": "dense_object",
+      "corpus_file_bytes": 1048640,
+      "corpus_sha256": "61fc7ddda6234ec930027826c293ed95bbf8654b27a723d5611780c019f91936",
+      "record_count": 9280,
+      "verified_records": 9280,
+      "input_bytes": 1030080,
+      "implementations": {
+        "repairjson": {
+          "batches_per_sample": 16,
+          "samples_seconds": [
+            0.181378917011898,
+            0.20950279099633917,
+            0.18040041701169685,
+            0.3550155419507064,
+            0.15533337503438815
+          ],
+          "seconds_per_corpus_median": 0.011336182313243626,
+          "records_per_second": 818617.7448080147,
+          "input_mib_per_second": 86.65711371773685
+        },
+        "json_repair_skip": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            3.1409851670032367,
+            3.2835910000139847,
+            3.3822067080182023,
+            3.498076707997825,
+            2.064173042017501
+          ],
+          "seconds_per_corpus_median": 3.2835910000139847,
+          "records_per_second": 2826.1741489608407,
+          "input_mib_per_second": 0.2991727166506322
+        },
+        "json_repair_default": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            4.045005166030023,
+            3.410783250001259,
+            2.8703250419930555,
+            2.396637667028699,
+            2.220303874986712
+          ],
+          "seconds_per_corpus_median": 2.8703250419930555,
+          "records_per_second": 3233.0833143399973,
+          "input_mib_per_second": 0.34224724568532916
+        }
+      },
+      "ratio_to_repairjson": {
+        "json_repair_skip": 289.65580380423944,
+        "json_repair_default": 253.20032464895746
+      },
+      "execution_orders": [
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ],
+        [
+          "json_repair_default",
+          "repairjson",
+          "json_repair_skip"
+        ],
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ]
+      ]
+    },
+    {
+      "dataset": "fenced_payload",
+      "corpus_file_bytes": 1048658,
+      "corpus_sha256": "46343df683d00a33e32ae0b8795f14a07f4a3974d36abce4a096b4bc9a7e7b62",
+      "record_count": 9893,
+      "verified_records": 9893,
+      "input_bytes": 1028872,
+      "implementations": {
+        "repairjson": {
+          "batches_per_sample": 32,
+          "samples_seconds": [
+            0.21242762496694922,
+            0.2261079169693403,
+            0.2501957080094144,
+            0.21181549999164417,
+            0.24045883299550042
+          ],
+          "seconds_per_corpus_median": 0.007065872405291884,
+          "records_per_second": 1400110.1962428275,
+          "input_mib_per_second": 138.86590996671111
+        },
+        "json_repair_skip": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            1.7743661670247093,
+            2.037049875012599,
+            1.1424203329952434,
+            1.1275207080179825,
+            1.1315147500135936
+          ],
+          "seconds_per_corpus_median": 1.1424203329952434,
+          "records_per_second": 8659.684806258776,
+          "input_mib_per_second": 0.8588859747418525
+        },
+        "json_repair_default": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            1.8242072089924477,
+            1.4527357920305803,
+            1.3014286250108853,
+            1.1664217910147272,
+            1.6798005829914473
+          ],
+          "seconds_per_corpus_median": 1.4527357920305803,
+          "records_per_second": 6809.910001716094,
+          "input_mib_per_second": 0.6754213716301668
+        }
+      },
+      "ratio_to_repairjson": {
+        "json_repair_skip": 161.6814269303312,
+        "json_repair_default": 205.5989280166699
+      },
+      "execution_orders": [
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ],
+        [
+          "json_repair_default",
+          "repairjson",
+          "json_repair_skip"
+        ],
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ]
+      ]
+    },
+    {
+      "dataset": "chatty_nested",
+      "corpus_file_bytes": 1048764,
+      "corpus_sha256": "af4c40a1a6312765740b7bd242bbea4e8008ce1c78038288824c2ff144a0dd0e",
+      "record_count": 5141,
+      "verified_records": 5141,
+      "input_bytes": 1038482,
+      "implementations": {
+        "repairjson": {
+          "batches_per_sample": 64,
+          "samples_seconds": [
+            0.30471520801074803,
+            0.5229384580161422,
+            0.5650672080228105,
+            0.5356410840176977,
+            0.63807241700124
+          ],
+          "seconds_per_corpus_median": 0.008369391937776527,
+          "records_per_second": 614262.0680476574,
+          "input_mib_per_second": 118.3328034836071
+        },
+        "json_repair_skip": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            0.9655763749615289,
+            1.3137700000079349,
+            1.6467276249895804,
+            1.7144026670139283,
+            1.9502728329971433
+          ],
+          "seconds_per_corpus_median": 1.6467276249895804,
+          "records_per_second": 3121.949205189613,
+          "input_mib_per_second": 0.6014192003710764
+        },
+        "json_repair_default": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            1.0761871669674292,
+            1.8418135000392795,
+            1.8600711670005694,
+            1.8692012910032645,
+            2.1329775000340305
+          ],
+          "seconds_per_corpus_median": 1.8600711670005694,
+          "records_per_second": 2763.8727437993916,
+          "input_mib_per_second": 0.5324385588145037
+        }
+      },
+      "ratio_to_repairjson": {
+        "json_repair_skip": 196.75594562095057,
+        "json_repair_default": 222.24687060058145
+      },
+      "execution_orders": [
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ],
+        [
+          "json_repair_default",
+          "repairjson",
+          "json_repair_skip"
+        ],
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ]
+      ]
+    },
+    {
+      "dataset": "long_text",
+      "corpus_file_bytes": 1048692,
+      "corpus_sha256": "ec12420d3b4555e1b0433a91956d69b76e9bad0c3de781a6d7278faef81a64d7",
+      "record_count": 4069,
+      "verified_records": 4069,
+      "input_bytes": 1040554,
+      "implementations": {
+        "repairjson": {
+          "batches_per_sample": 64,
+          "samples_seconds": [
+            0.5194550000014715,
+            0.5301430830149911,
+            0.4465572920162231,
+            0.311991750029847,
+            0.2017450419953093
+          ],
+          "seconds_per_corpus_median": 0.0069774576877534855,
+          "records_per_second": 583163.6940116058,
+          "input_mib_per_second": 142.22223466514396
+        },
+        "json_repair_skip": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            1.6911652919952758,
+            1.7311768750078045,
+            1.428152333945036,
+            1.0443001249805093,
+            0.7838437909958884
+          ],
+          "seconds_per_corpus_median": 1.428152333945036,
+          "records_per_second": 2849.1358402643623,
+          "input_mib_per_second": 0.6948485823585685
+        },
+        "json_repair_default": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            1.5899722499889322,
+            1.9391760839498602,
+            2.0507641249569133,
+            1.013366750034038,
+            0.762172750022728
+          ],
+          "seconds_per_corpus_median": 1.5899722499889322,
+          "records_per_second": 2559.164161530696,
+          "input_mib_per_second": 0.6241301536178993
+        }
+      },
+      "ratio_to_repairjson": {
+        "json_repair_skip": 204.68090210731964,
+        "json_repair_default": 227.87271827955027
+      },
+      "execution_orders": [
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ],
+        [
+          "json_repair_default",
+          "repairjson",
+          "json_repair_skip"
+        ],
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ]
+      ]
+    },
+    {
+      "dataset": "array_heavy",
+      "corpus_file_bytes": 1048653,
+      "corpus_sha256": "81edf47f6d01e1021bb8a6930122adaaf2a7673abb1345ac0a61e685ffbbb3ff",
+      "record_count": 6564,
+      "verified_records": 6564,
+      "input_bytes": 1035525,
+      "implementations": {
+        "repairjson": {
+          "batches_per_sample": 64,
+          "samples_seconds": [
+            0.547949832980521,
+            0.8141949999844655,
+            0.725490584038198,
+            0.5868505840189755,
+            0.8080253749503754
+          ],
+          "seconds_per_corpus_median": 0.011335790375596844,
+          "records_per_second": 579050.9335926563,
+          "input_mib_per_second": 87.11819500672321
+        },
+        "json_repair_skip": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            2.0170350830303505,
+            2.8083407919621095,
+            2.0295554579934105,
+            1.8182802919764072,
+            2.1800699159502983
+          ],
+          "seconds_per_corpus_median": 2.0295554579934105,
+          "records_per_second": 3234.2057834131438,
+          "input_mib_per_second": 0.4865861598445606
+        },
+        "json_repair_default": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            2.4065810840111226,
+            3.402151457965374,
+            2.690298791974783,
+            1.9374071670463309,
+            1.9277800410054624
+          ],
+          "seconds_per_corpus_median": 2.4065810840111226,
+          "records_per_second": 2727.520815155573,
+          "input_mib_per_second": 0.41035542207894204
+        }
+      },
+      "ratio_to_repairjson": {
+        "json_repair_skip": 179.03960736275982,
+        "json_repair_default": 212.2993637207598
+      },
+      "execution_orders": [
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ],
+        [
+          "json_repair_default",
+          "repairjson",
+          "json_repair_skip"
+        ],
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ]
+      ]
+    },
+    {
+      "dataset": "truncated_nested",
+      "corpus_file_bytes": 1048666,
+      "corpus_sha256": "cdb0965fba149679ab90ed783c9a2082beda1e4530392642334534dab6a36459",
+      "record_count": 5047,
+      "verified_records": 5047,
+      "input_bytes": 1038572,
+      "implementations": {
+        "repairjson": {
+          "batches_per_sample": 32,
+          "samples_seconds": [
+            0.25674300000537187,
+            0.26455433398950845,
+            0.30587162502342835,
+            0.2637378749786876,
+            0.3281289160368033
+          ],
+          "seconds_per_corpus_median": 0.008267322937172139,
+          "records_per_second": 610475.7293690938,
+          "input_mib_per_second": 119.80413123640012
+        },
+        "json_repair_skip": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            1.6955144589883275,
+            2.1609555420000106,
+            1.9812171660014428,
+            1.8561605419963598,
+            2.1565004580188543
+          ],
+          "seconds_per_corpus_median": 1.9812171660014428,
+          "records_per_second": 2547.423920309564,
+          "input_mib_per_second": 0.4999247226075925
+        },
+        "json_repair_default": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            1.9084842079901136,
+            1.916294457972981,
+            2.453622125030961,
+            1.961259457981214,
+            2.5615467079915106
+          ],
+          "seconds_per_corpus_median": 1.961259457981214,
+          "records_per_second": 2573.346417508184,
+          "input_mib_per_second": 0.5050119391945128
+        }
+      },
+      "ratio_to_repairjson": {
+        "json_repair_skip": 239.6443420751535,
+        "json_repair_default": 237.23029484706063
+      },
+      "execution_orders": [
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ],
+        [
+          "json_repair_default",
+          "repairjson",
+          "json_repair_skip"
+        ],
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ]
+      ]
+    },
+    {
+      "dataset": "unicode",
+      "corpus_file_bytes": 1048613,
+      "corpus_sha256": "d3fef480be36e88848dd8b094fb35be3f9c1ba1b76d161ca29454967d1e3f473",
+      "record_count": 13083,
+      "verified_records": 13083,
+      "input_bytes": 1022447,
+      "implementations": {
+        "repairjson": {
+          "batches_per_sample": 16,
+          "samples_seconds": [
+            0.21032370900502428,
+            0.17824983299942687,
+            0.1809014169848524,
+            0.24833933397894725,
+            0.12438258394831792
+          ],
+          "seconds_per_corpus_median": 0.011306338561553275,
+          "records_per_second": 1157138.5315214412,
+          "input_mib_per_second": 86.2420171197017
+        },
+        "json_repair_skip": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            1.1177777500124648,
+            0.9390617089811713,
+            1.4110823340015486,
+            1.23090087500168,
+            1.0585183330113068
+          ],
+          "seconds_per_corpus_median": 1.1177777500124648,
+          "records_per_second": 11704.473451769913,
+          "input_mib_per_second": 0.8723392854936928
+        },
+        "json_repair_default": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            0.9673446249798872,
+            1.1402049580356106,
+            1.057958375022281,
+            1.40708470903337,
+            0.8566235419712029
+          ],
+          "seconds_per_corpus_median": 1.057958375022281,
+          "records_per_second": 12366.271026234343,
+          "input_mib_per_second": 0.9216633345958299
+        }
+      },
+      "ratio_to_repairjson": {
+        "json_repair_skip": 98.8629293141301,
+        "json_repair_default": 93.57214709807324
+      },
+      "execution_orders": [
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ],
+        [
+          "json_repair_default",
+          "repairjson",
+          "json_repair_skip"
+        ],
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "repairjson"
+        ]
+      ]
+    },
+    {
+      "dataset": "valid_json",
+      "corpus_file_bytes": 1048686,
+      "corpus_sha256": "413cbdf218006b1a3120bc58a41637af8b888fd8252f9fe0d51aa6867fc4d94c",
+      "record_count": 9199,
+      "verified_records": 9199,
+      "input_bytes": 1030288,
+      "implementations": {
+        "repairjson": {
+          "batches_per_sample": 64,
+          "samples_seconds": [
+            0.24792987504042685,
+            0.24613029201282188,
+            0.2529098750092089,
+            0.2516085840179585,
+            0.25163583300309256
+          ],
+          "seconds_per_corpus_median": 0.0039313841252806014,
+          "records_per_second": 2339888.371844973,
+          "input_mib_per_second": 249.92704167045306
+        },
+        "json_repair_skip": {
+          "batches_per_sample": 1,
+          "samples_seconds": [
+            0.36244666698621586,
+            0.367619291995652,
+            0.3749038340174593,
+            0.3792534579988569,
+            0.39981816697400063
+          ],
+          "seconds_per_corpus_median": 0.3749038340174593,
+          "records_per_second": 24536.95898871923,
+          "input_mib_per_second": 2.6208299701085602
+        },
+        "json_repair_default": {
+          "batches_per_sample": 8,
+          "samples_seconds": [
+            0.19844308396568522,
+            0.20156133401906118,
+            0.20255504199303687,
+            0.20041137502994388,
+            0.2549432920059189
+          ],
+          "seconds_per_corpus_median": 0.025195166752382647,
+          "records_per_second": 365109.708953606,
+          "input_mib_per_second": 38.997924235156894
+        },
+        "json_roundtrip": {
+          "batches_per_sample": 16,
+          "samples_seconds": [
+            0.35481824999442324,
+            0.3539262079866603,
+            0.3593030000338331,
+            0.35980591701809317,
+            0.4566382499760948
+          ],
+          "seconds_per_corpus_median": 0.022456437502114568,
+          "records_per_second": 409637.54821457295,
+          "input_mib_per_second": 43.754010582000895
+        }
+      },
+      "ratio_to_repairjson": {
+        "json_repair_skip": 95.36179169230904,
+        "json_repair_default": 6.408726786671946,
+        "json_roundtrip": 5.712094465078949
+      },
+      "execution_orders": [
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default",
+          "json_roundtrip"
+        ],
+        [
+          "json_repair_skip",
+          "json_repair_default",
+          "json_roundtrip",
+          "repairjson"
+        ],
+        [
+          "json_repair_default",
+          "json_roundtrip",
+          "repairjson",
+          "json_repair_skip"
+        ],
+        [
+          "json_roundtrip",
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default"
+        ],
+        [
+          "repairjson",
+          "json_repair_skip",
+          "json_repair_default",
+          "json_roundtrip"
+        ]
+      ]
+    }
+  ],
+  "run_conditions": {
+    "annotation": "Added by the operator after collection; timing samples and hashes are unmodified.",
+    "machine_pressure": "Concurrent Rust/Python validation tasks on a shared Mac; parent reported load reaching 44.",
+    "use": "Fixture-verification and harness-execution evidence only. Do not use these ratios for speedup or resume claims."
+  }
+}
