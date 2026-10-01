@@ -34,6 +34,14 @@ cargo test --locked
 
 Rust tests cover parser internals and depth boundaries. Python regression tests cover the installed API. Hypothesis checks valid-value preservation, arbitrary Unicode, syntax noise, truncation, and repair idempotence with deterministic generated examples.
 
+The subprocess safety test also exercises all public aliases, raw and escaped surrogates, large truncated inputs, and 10,000 seeded malformed strings. Run a larger reproducible check against any installed build:
+
+```bash
+.venv/bin/python -I scripts/check_inputs.py --cases 100000 --seed 76381
+```
+
+The script reports accepted repairs and documented errors; accepted output must decode and repair idempotently. An uncaught native panic, process abort, or failed invariant makes the command fail. This is targeted regression coverage, not exhaustive fuzzing or an input-size policy for production.
+
 To exercise older Python versions, create a separate environment and install `.[test]`. CI checks Python 3.8, 3.10, 3.12, and 3.14, Rust stable and 1.88, and installed wheels on the native release runners.
 
 For packaging changes, build and validate both distribution formats:

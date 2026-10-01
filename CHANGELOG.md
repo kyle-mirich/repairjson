@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- An input-size-bounded structured-output example that tries strict JSON first and validates fields, types, and numeric ranges after repair.
+- Isolated process-survival regressions for deep nesting, all public aliases, raw and escaped surrogates, large truncated strings and arrays, comment tails, and deterministic syntax noise.
+- A configurable `scripts/check_inputs.py` runner for reproducing larger malformed-input checks by case count and seed.
+- Benchmark integrity regressions, Unicode and valid-JSON corpora, and a valid-input standard-library string-to-string baseline.
+
+### Fixed
+
+- Benchmark verification now checks each implementation against explicit fixture expectations, so two matching but incorrect repairs cannot pass verification.
+- Benchmarks calibrate whole-corpus batches, normalize repeated timing samples, exclude separator bytes from input throughput, and retain corpus/source hashes. Python baselines use the same compact UTF-8 output options; both default and skip-validation modes are measured.
+- Source distributions include the runnable demo and benchmark methodology.
+
+Parser behavior and the package version are unchanged. These changes are not a new PyPI release.
+
 ## [0.2.0] - 2026-09-21
 
 ### Fixed
